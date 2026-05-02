@@ -1,0 +1,135 @@
+name: iOS Release Build
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: macos-26
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+
+      - name: Install dependencies
+        run: flutter pub get
+
+      - name: Generate localizations
+        run: flutter gen-l10n
+
+      - name: Ensure iOS project structure exists
+        run: |
+          mkdir -p ios/Runner/Assets.xcassets/AppIcon.appiconset
+          if [ ! -f "ios/Runner.xcodeproj/project.pbxproj" ]; then
+            echo "Regenerating iOS project structure..."
+            flutter create --project-name kirikiri --org io.kirikiri --platforms ios .
+            sed -i '' 's/io\.kirikiri\.kirikiri/io.kirikiri.app/g' \
+              ios/Runner.xcodeproj/project.pbxproj
+          fi
+
+      - name: Generate launcher icons
+        if: hashFiles('assets/icon/icon.png') != ''
+        run: flutter pub run flutter_launcher_icons
+
+      # ── 署名証明書のインストール ────────────────────────────
+      - name: Import code signing certificate
+        uses: Apple-Actions/import-codesign-certs@v3
+        with:
+          p12-file-base64: ${{ secrets.IOS_CERTIFICATE_BASE64 }}
+          p12-password: ${{ secrets.IOS_CERTIFICATE_PASSWORD }}
+
+      - name: Install provisioning profile
+        run: |
+          mkdir -p ~/Library/MobileDevice/Provisioning\ Profiles
+          echo "${{ secrets.IOS_PROVISION_PROFILE_BASE64 }}" | base64 --decode \
+            > ~/Library/MobileDevice/Provisioning\ Profiles/kirikiri.mobileprovision
+
+      # ── ExportOptions.plist の Team ID を書き換え ──────────
+      - name: Patch ExportOptions.plist
+        run: |
+          sed -i '' \
+            "s/\$(IOS_TEAM_ID)/${{ secrets.IOS_TEAM_ID }}/g" \
+            ios/ExportOptions.plist
+
+      # ── Xcode プロジェクトの署名設定をマニュアルに変更 ─────
+      - name: Configure Xcode code signing
+        env:
+          IOS_TEAM_ID: ${{ secrets.IOS_TEAM_ID }}
+        run: |
+          # DEVELOPMENT_TEAM は project.pbxproj の target build settings に存在するため sed で置換
+          # (target build settings は xcconfig より優先されるため xcconfig では上書きできない)
+          sed -i '' \
+            "s/DEVELOPMENT_TEAM = [^;]*/DEVELOPMENT_TEAM = $IOS_TEAM_ID/g" \
+            ios/Runner.xcodeproj/project.pbxproj
+
+          # CODE_SIGN_STYLE / IDENTITY / PROVISIONING_PROFILE_SPECIFIER は
+          # 新規生成の project.pbxproj には存在しないため xcconfig に追記する方式を使用
+          # flutter build --no-codesign 後に pod install が Pods-Runner.release.xcconfig を生成し、
+          # そのファイルが #include "../../Flutter/Release.xcconfig" で本ファイルを参照するため
+          # Runner ターゲットに確実に適用される
+          mkdir -p ios/Flutter
+          printf '\nCODE_SIGN_STYLE=Manual\nCODE_SIGN_IDENTITY=Apple Distribution\nPROVISIONING_PROFILE_SPECIFIER=kirikiri AppStore\n' \
+            >> ios/Flutter/Release.xcconfig
+
+      # ── iOS ビルド ─────────────────────────────────────────
+      - name: Build IPA
+        env:
+          IOS_TEAM_ID: ${{ secrets.IOS_TEAM_ID }}
+        run: |
+          # flutter build ios --no-codesign でDart AOTコンパイルとpod設定を実行
+          # (flutter build ipa の証明書事前チェックをバイパス)
+          flutter build ios --release --no-codesign
+
+          # xcodebuild で直接アーカイブ・署名
+          # PROVISIONING_PROFILE_SPECIFIER はコマンドラインから渡さない
+          # （グローバル指定するとPodターゲットにも適用されてエラーになる）
+          # Runner ターゲットの設定は project.pbxproj の sed で設定済み
+          xcodebuild archive \
+            -workspace ios/Runner.xcworkspace \
+            -scheme Runner \
+            -configuration Release \
+            -archivePath "$RUNNER_TEMP/kirikiri.xcarchive" \
+            DEVELOPMENT_TEAM="$IOS_TEAM_ID" \
+            CODE_SIGN_STYLE=Manual \
+            CODE_SIGN_IDENTITY="Apple Distribution"
+
+          # IPA をエクスポート
+          xcodebuild -exportArchive \
+            -archivePath "$RUNNER_TEMP/kirikiri.xcarchive" \
+            -exportOptionsPlist ios/ExportOptions.plist \
+            -exportPath "$RUNNER_TEMP/ipa"
+
+          mkdir -p build/ios/ipa
+          find "$RUNNER_TEMP/ipa" -name "*.ipa" -exec cp {} build/ios/ipa/kirikiri.ipa \;
+
+      # ── App Store Connect へアップロード ──────────────────
+      - name: Upload to TestFlight
+        env:
+          ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+          ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+          ASC_PRIVATE_KEY: ${{ secrets.ASC_PRIVATE_KEY }}
+        run: |
+          mkdir -p ~/.appstoreconnect/private_keys
+          echo "$ASC_PRIVATE_KEY" | base64 --decode \
+            > ~/.appstoreconnect/private_keys/AuthKey_${ASC_KEY_ID}.p8
+          xcrun altool --upload-app \
+            --type ios \
+            --file "build/ios/ipa/kirikiri.ipa" \
+            --apiKey "$ASC_KEY_ID" \
+            --apiIssuer "$ASC_ISSUER_ID"
+          rm -f ~/.appstoreconnect/private_keys/AuthKey_${ASC_KEY_ID}.p8
+
+      - name: Upload IPA artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: kirikiri-${{ github.ref_name }}.ipa
+          path: build/ios/ipa/kirikiri.ipa
+          retention-days: 14

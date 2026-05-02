@@ -1,0 +1,72 @@
+name: kirikiri
+description: スマホで完全なモバイル開発環境 - Google Cloud Shellをポケットに
+publish_to: 'none'
+version: 1.0.0+3
+
+environment:
+  sdk: '>=3.2.0 <4.0.0'
+
+dependencies:
+  flutter:
+    sdk: flutter
+  flutter_localizations:
+    sdk: flutter
+  intl: ^0.20.2
+
+  # SSH クライアント (Dart純粋実装)
+  dartssh2: ^2.9.0
+
+  # ターミナルエミュレーター ウィジェット
+  xterm: ^4.0.0
+
+  # セキュアなトークン保存
+  flutter_secure_storage: ^9.2.2
+
+  # HTTP クライアント
+  http: ^1.2.1
+
+  # Google サインイン (公式パッケージ、Android ネイティブ認証)
+  google_sign_in: ^6.2.1
+
+  # SSH鍵生成用
+  pointycastle: ^3.7.3
+
+  # 外部ブラウザ起動
+  url_launcher: ^6.3.0
+
+  # Webプレビュー用インアップWebView
+  webview_flutter: ^4.4.4
+
+  # 状態管理
+  provider: ^6.1.2
+
+  # バックグラウンドSSH維持用フォアグラウンドサービス (Android)
+  flutter_foreground_task: ^8.13.0
+
+  # プラグインシステム
+  archive: ^3.4.10          # ZIPファイル解凍
+  path_provider: ^2.1.3     # デバイスローカルファイルシステム
+
+  cupertino_icons: ^1.0.8
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^3.0.0
+  flutter_launcher_icons: ^0.14.1
+
+flutter_launcher_icons:
+  android: true
+  ios: true
+  image_path: "assets/icon/icon.png"
+  adaptive_icon_background: "#DC2626"
+  adaptive_icon_foreground: "assets/icon/icon.png"
+  min_sdk_android: 21
+  remove_alpha_ios: true
+
+flutter:
+  uses-material-design: true
+  generate: true
+  assets:
+    - assets/adi-registration.properties
+    - assets/icon/

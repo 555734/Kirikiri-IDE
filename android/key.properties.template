@@ -1,0 +1,19 @@
+# このファイルをコピーして android/key.properties として保存してください。
+# key.properties は .gitignore 済みのため Git には含まれません。
+#
+# キーストア生成コマンド（一度だけ実行・生成したファイルを絶対になくさないこと）:
+#
+#   keytool -genkey -v \
+#     -keystore ~/kirikiri-release.jks \
+#     -keyalg RSA \
+#     -keysize 2048 \
+#     -validity 10000 \
+#     -alias upload \
+#     -dname "CN=kirikiri, OU=Mobile, O=YourCompany, L=Tokyo, S=Tokyo, C=JP"
+#
+# 生成後、下記の値をすべて埋めてください。
+
+storePassword=<キーストアのパスワード>
+keyPassword=<キーのパスワード>
+keyAlias=upload
+storeFile=<キーストアファイルの絶対パス（例: /Users/yourname/kirikiri-release.jks）>
