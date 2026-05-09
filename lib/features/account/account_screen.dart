@@ -5,9 +5,13 @@ import 'package:kirikiri/l10n/app_localizations.dart';
 import 'package:provider/provider.dart';
 import 'package:url_launcher/url_launcher.dart';
 
+import '../../core/feature_flag_service.dart';
 import '../../core/secure_storage_service.dart';
 import '../../core/theme_service.dart';
+import '../auth/google_auth_service.dart';
+import '../cloudshell/cloud_shell_service.dart';
 import '../../theme/app_theme.dart';
+import '../api_test/api_test_screen.dart';
 import '../github/github_service.dart';
 import '../preview/web_preview_screen.dart';
 
@@ -16,20 +20,30 @@ class AccountScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return ListView(
-      padding: const EdgeInsets.symmetric(vertical: 8),
-      children: const [
-        _AppearanceSection(),
-        _Divider(),
-        _GitHubSection(),
-        _Divider(),
-        _ApiKeysSection(),
-        _Divider(),
-        _CommandSnippetsSection(),
-        _Divider(),
-        _AboutSection(),
-        SizedBox(height: 32),
-      ],
+    return Consumer<FeatureFlagService>(
+      builder: (context, flags, _) => ListView(
+        padding: const EdgeInsets.symmetric(vertical: 8),
+        children: [
+          const _GoogleAccountSection(),
+          const _Divider(),
+          const _AppearanceSection(),
+          const _Divider(),
+          const _GitHubSection(),
+          const _Divider(),
+          if (flags.apiKeys) ...[
+            const _ApiKeysSection(),
+            const _Divider(),
+            const _ApiTestSection(),
+            const _Divider(),
+          ],
+          const _CommandSnippetsSection(),
+          const _Divider(),
+          const _AdditionalFeaturesSection(),
+          const _Divider(),
+          const _AboutSection(),
+          const SizedBox(height: 32),
+        ],
+      ),
     );
   }
 }
@@ -40,6 +54,65 @@ class _Divider extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return const SizedBox(height: 8);
+  }
+}
+
+// ── Googleアカウントセクション ────────────────────────────────
+
+class _GoogleAccountSection extends StatelessWidget {
+  const _GoogleAccountSection();
+
+  @override
+  Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context)!;
+    return Consumer<GoogleAuthService>(
+      builder: (context, auth, _) {
+        if (!auth.isSignedIn) return const SizedBox.shrink();
+        return _Section(
+          title: 'Google Cloud Shell',
+          children: [
+            ListTile(
+              leading: const Icon(Icons.account_circle_rounded),
+              title: Text(l.githubLoggedIn),
+              trailing: TextButton(
+                onPressed: () => _confirmLogout(context, auth),
+                child: Text(l.logout,
+                    style: const TextStyle(color: AppColors.error)),
+              ),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  void _confirmLogout(BuildContext context, GoogleAuthService auth) {
+    final l = AppLocalizations.of(context)!;
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: AppColors.surface,
+        title: Text(l.logoutConfirmTitle),
+        content: Text(l.logoutConfirmBody),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: Text(l.cancel),
+          ),
+          ElevatedButton(
+            onPressed: () async {
+              Navigator.pop(ctx);
+              await auth.signOut();
+              if (ctx.mounted) {
+                ctx.read<CloudShellService>().reset();
+              }
+            },
+            style: ElevatedButton.styleFrom(backgroundColor: AppColors.error),
+            child: Text(l.logout),
+          ),
+        ],
+      ),
+    );
   }
 }
 
@@ -63,7 +136,74 @@ class _AppearanceSection extends StatelessWidget {
               activeColor: AppColors.primary,
               onChanged: (v) => themeService.setDark(v),
             ),
+            ListTile(
+              leading: const Icon(Icons.text_fields_rounded),
+              title: Text(l.fontSizeLabel),
+              subtitle: Text('${themeService.terminalFontSize.toInt()}px'),
+              trailing: const Icon(Icons.arrow_forward_ios_rounded, size: 14),
+              onTap: () => _showFontSizePicker(context, themeService),
+            ),
           ],
+        );
+      },
+    );
+  }
+
+  void _showFontSizePicker(BuildContext context, ThemeService themeService) {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: AppColors.surface,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+      ),
+      builder: (ctx) {
+        final l = AppLocalizations.of(context)!;
+        return Padding(
+          padding: const EdgeInsets.all(20),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(l.fontSizeLabel,
+                  style: const TextStyle(
+                      fontSize: 16, fontWeight: FontWeight.w700)),
+              const SizedBox(height: 16),
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: [10, 11, 12, 13, 14, 16, 18, 20]
+                    .map((size) => GestureDetector(
+                          onTap: () {
+                            themeService.setTerminalFontSize(size.toDouble());
+                            Navigator.pop(ctx);
+                          },
+                          child: Container(
+                            width: 60,
+                            height: 44,
+                            decoration: BoxDecoration(
+                              color: themeService.terminalFontSize == size
+                                  ? AppColors.primary
+                                  : AppColors.surfaceHighlight,
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            alignment: Alignment.center,
+                            child: Text(
+                              '${size}px',
+                              style: TextStyle(
+                                color: themeService.terminalFontSize == size
+                                    ? Colors.white
+                                    : AppColors.textPrimary,
+                                fontFamily: 'monospace',
+                                fontSize: 13,
+                              ),
+                            ),
+                          ),
+                        ))
+                    .toList(),
+              ),
+              const SizedBox(height: 16),
+            ],
+          ),
         );
       },
     );
@@ -314,6 +454,33 @@ class _ApiKeyTileState extends State<_ApiKeyTile> {
   }
 }
 
+// ── APIテストセクション ──────────────────────────────────────
+
+class _ApiTestSection extends StatelessWidget {
+  const _ApiTestSection();
+
+  @override
+  Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context)!;
+    return _Section(
+      title: l.apiTestTitle,
+      children: [
+        ListTile(
+          leading: const Icon(Icons.api_rounded),
+          title: Text(l.apiTestTitle),
+          subtitle: const Text('REST HTTP client with API key support',
+              style: TextStyle(fontSize: 12)),
+          trailing: const Icon(Icons.arrow_forward_ios_rounded, size: 14),
+          onTap: () => Navigator.push(
+            context,
+            MaterialPageRoute(builder: (_) => const ApiTestScreen()),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
 // ── コマンドスニペットセクション ─────────────────────────────
 
 class _CommandSnippetsSection extends StatefulWidget {
@@ -466,6 +633,52 @@ class _CommandSnippetsSectionState extends State<_CommandSnippetsSection> {
               ),
             )),
       ],
+    );
+  }
+}
+
+// ── 追加機能セクション ────────────────────────────────────────
+
+class _AdditionalFeaturesSection extends StatelessWidget {
+  const _AdditionalFeaturesSection();
+
+  @override
+  Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context)!;
+    return Consumer<FeatureFlagService>(
+      builder: (_, flags, __) => _Section(
+        title: l.additionalFeaturesSection,
+        children: [
+          SwitchListTile(
+            title: Text(l.featureSshTab),
+            subtitle: Text(l.featureSshTabSubtitle),
+            value: flags.sshTab,
+            activeColor: AppColors.primary,
+            onChanged: flags.setSshTab,
+          ),
+          SwitchListTile(
+            title: Text(l.featureApiKeys),
+            subtitle: Text(l.featureApiKeysSubtitle),
+            value: flags.apiKeys,
+            activeColor: AppColors.primary,
+            onChanged: flags.setApiKeys,
+          ),
+          SwitchListTile(
+            title: Text(l.featureCicd),
+            subtitle: Text(l.featureCicdSubtitle),
+            value: flags.cicd,
+            activeColor: AppColors.primary,
+            onChanged: flags.setCicd,
+          ),
+          SwitchListTile(
+            title: Text(l.featurePlugins),
+            subtitle: Text(l.featurePluginsSubtitle),
+            value: flags.plugins,
+            activeColor: AppColors.primary,
+            onChanged: flags.setPlugins,
+          ),
+        ],
+      ),
     );
   }
 }

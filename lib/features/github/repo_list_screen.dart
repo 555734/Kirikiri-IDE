@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 
 import '../../core/screenshot_mode.dart';
 import '../../theme/app_theme.dart';
+import '../../widgets/skeleton_box.dart';
 import '../cloudshell/cloud_shell_service.dart';
 import 'github_service.dart';
 import 'github_setup_screen.dart';
@@ -170,9 +171,10 @@ class _RepoListScreenState extends State<RepoListScreen> {
   }
 
   Widget _buildBody() {
-    if (_loading) {
-      return const Center(
-          child: CircularProgressIndicator(color: AppColors.primary));
+    // 初回ロード（データなし）のみスケルトンを表示。
+    // キャッシュヒット時は _loading が false のままデータが入るので見えない。
+    if (_loading && _repos == null) {
+      return _buildSkeleton();
     }
     if (_error != null) {
       return Center(
@@ -215,6 +217,46 @@ class _RepoListScreenState extends State<RepoListScreen> {
       ),
     );
   }
+
+  Widget _buildSkeleton() {
+    return ListView.separated(
+      padding: const EdgeInsets.fromLTRB(16, 4, 16, 24),
+      itemCount: 6,
+      separatorBuilder: (_, __) => const SizedBox(height: 8),
+      itemBuilder: (_, __) => const _RepoCardSkeleton(),
+    );
+  }
+}
+
+class _RepoCardSkeleton extends StatelessWidget {
+  const _RepoCardSkeleton();
+
+  @override
+  Widget build(BuildContext context) {
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(14),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                SkeletonBox(width: 130, height: 14),
+                const Spacer(),
+                SkeletonBox(width: 36, height: 12),
+              ],
+            ),
+            const SizedBox(height: 10),
+            SkeletonBox(width: double.infinity, height: 11),
+            const SizedBox(height: 5),
+            SkeletonBox(width: 180, height: 11),
+            const SizedBox(height: 10),
+            SkeletonBox(width: 80, height: 10),
+          ],
+        ),
+      ),
+    );
+  }
 }
 
 class _RepoCard extends StatelessWidget {
@@ -227,14 +269,19 @@ class _RepoCard extends StatelessWidget {
     return Card(
       child: InkWell(
         borderRadius: BorderRadius.circular(12),
-        onTap: () => Navigator.of(context).push(MaterialPageRoute(
-          builder: (_) => RepoDetailScreen(
-            repo: repo,
-            onOpenInShell: () {
-              _openInShell(context);
-            },
-          ),
-        )),
+        onTap: () {
+          // ナビゲーションアニメーション中にフェッチを先行開始する
+          final treeFuture = context
+              .read<GitHubService>()
+              .getFileTree(repo.owner, repo.name, repo.defaultBranch);
+          Navigator.of(context).push(MaterialPageRoute(
+            builder: (_) => RepoDetailScreen(
+              repo: repo,
+              treeFuture: treeFuture,
+              onOpenInShell: () => _openInShell(context),
+            ),
+          ));
+        },
         child: Padding(
           padding: const EdgeInsets.all(14),
           child: Column(

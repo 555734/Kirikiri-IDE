@@ -2,10 +2,13 @@ import 'package:flutter/material.dart';
 import 'package:kirikiri/l10n/app_localizations.dart';
 import 'package:provider/provider.dart';
 
+import '../../core/constants.dart';
 import '../../core/screenshot_mode.dart';
 import '../../core/secure_storage_service.dart';
 import '../../theme/app_theme.dart';
 import '../../features/auth/google_auth_service.dart';
+import '../../features/preview/port_tunnel_config_service.dart';
+import '../../features/preview/ssh_tunnel_service.dart';
 import '../../features/terminal/demo_terminal_screen.dart';
 import '../../features/terminal/terminal_controller.dart';
 import '../../features/terminal/terminal_screen.dart';
@@ -20,18 +23,6 @@ class CloudShellScreen extends StatefulWidget {
 }
 
 class _CloudShellScreenState extends State<CloudShellScreen> {
-  int _handledPendingVersion = 0;
-
-  @override
-  void initState() {
-    super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (context.read<GoogleAuthService>().isSignedIn) {
-        context.read<CloudShellService>().startAndConnect();
-      }
-    });
-  }
-
   @override
   Widget build(BuildContext context) {
     if (kDemoMode) {
@@ -42,31 +33,16 @@ class _CloudShellScreenState extends State<CloudShellScreen> {
     }
     return Consumer<GoogleAuthService>(
       builder: (context, auth, _) {
-        return Scaffold(
-          backgroundColor: AppColors.background,
-          body: auth.isSignedIn
-              ? Consumer<CloudShellService>(
-                  builder: (context, service, _) {
-                    if (service.isLoading ||
-                        service.state == CloudShellState.starting) {
-                      return _buildLoadingView(service);
-                    }
-                    if (service.state == CloudShellState.error) {
-                      return _buildErrorView(service);
-                    }
-                    if (service.isRunning) {
-                      if (service.pendingRepoName != null &&
-                          service.pendingVersion > _handledPendingVersion) {
-                        _handledPendingVersion = service.pendingVersion;
-                        WidgetsBinding.instance.addPostFrameCallback(
-                            (_) => _openTerminal(context, service));
-                      }
-                      return _buildRunningView(context, service);
-                    }
-                    return _buildIdleView(context, service);
-                  },
-                )
-              : _buildLoginView(context, auth),
+        if (!auth.isSignedIn) {
+          return Scaffold(
+            backgroundColor: AppColors.background,
+            body: _buildLoginView(context, auth),
+          );
+        }
+        // サインイン済み → 即座にターミナルフレームを表示（起動オーバーレイ付き）
+        return const Scaffold(
+          backgroundColor: AppColors.terminalBackground,
+          body: _EagerTerminalView(),
         );
       },
     );
@@ -83,21 +59,32 @@ class _CloudShellScreenState extends State<CloudShellScreen> {
           mainAxisSize: MainAxisSize.min,
           children: [
             Container(
-              width: 72,
-              height: 72,
+              width: 84,
+              height: 84,
               decoration: BoxDecoration(
-                color: AppColors.primary,
-                borderRadius: BorderRadius.circular(18),
+                gradient: const LinearGradient(
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                  colors: [Color(0xFFEF4444), Color(0xFFB91C1C)],
+                ),
+                borderRadius: BorderRadius.circular(24),
+                boxShadow: [
+                  BoxShadow(
+                    color: AppColors.primary.withOpacity(0.30),
+                    blurRadius: 24,
+                    offset: const Offset(0, 8),
+                  ),
+                ],
               ),
               child: const Icon(Icons.terminal_rounded,
-                  color: Colors.white, size: 40),
+                  color: Colors.white, size: 46),
             ),
             const SizedBox(height: 24),
             Text(
               l.cloudShellTitle,
               style: const TextStyle(
                 color: AppColors.textPrimary,
-                fontSize: 20,
+                fontSize: 24,
                 fontWeight: FontWeight.w700,
               ),
             ),
@@ -150,7 +137,10 @@ class _CloudShellScreenState extends State<CloudShellScreen> {
                 label: Text(auth.isLoading ? l.loggingIn : l.loginWithGoogle),
                 style: ElevatedButton.styleFrom(
                   backgroundColor: AppColors.primary,
-                  padding: const EdgeInsets.symmetric(vertical: 16),
+                  padding: const EdgeInsets.symmetric(
+                      vertical: 16, horizontal: 24),
+                  shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(14)),
                   textStyle: const TextStyle(
                       fontSize: 16, fontWeight: FontWeight.w600),
                 ),
@@ -176,33 +166,6 @@ class _CloudShellScreenState extends State<CloudShellScreen> {
             ),
           ],
         ),
-      ),
-    );
-  }
-
-  // ── 接続中ビュー ────────────────────────────────────────
-
-  Widget _buildLoadingView(CloudShellService service) {
-    final l = AppLocalizations.of(context)!;
-    return Center(
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          const CircularProgressIndicator(color: AppColors.primary),
-          const SizedBox(height: 24),
-          Text(
-            service.pendingRepoName != null
-                ? l.preparingRepo(service.pendingRepoName!)
-                : l.cloudShellStarting,
-            style:
-                const TextStyle(color: AppColors.textPrimary, fontSize: 16),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            l.cloudShellFirstLaunchNote,
-            style: const TextStyle(color: AppColors.textSecondary),
-          ),
-        ],
       ),
     );
   }
@@ -264,154 +227,243 @@ class _CloudShellScreenState extends State<CloudShellScreen> {
       ),
     );
   }
+}
 
-  Widget _buildRunningView(BuildContext context, CloudShellService service) {
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(32),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Container(
-              width: 72,
-              height: 72,
-              decoration: BoxDecoration(
-                color: AppColors.success.withOpacity(0.15),
-                shape: BoxShape.circle,
-              ),
-              child: const Icon(Icons.check_circle_rounded,
-                  color: AppColors.success, size: 40),
-            ),
-            const SizedBox(height: 24),
-            Text(
-              AppLocalizations.of(context)!.cloudShellRunning,
-              style: const TextStyle(
-                color: AppColors.textPrimary,
-                fontSize: 20,
-                fontWeight: FontWeight.w700,
-              ),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              service.sshHost ?? '',
-              style: const TextStyle(
-                  color: AppColors.textSecondary,
-                  fontSize: 12,
-                  fontFamily: 'monospace'),
-            ),
-            const SizedBox(height: 40),
-            SizedBox(
-              width: double.infinity,
-              child: ElevatedButton.icon(
-                onPressed: () => _openTerminal(context, service),
-                icon: const Icon(Icons.terminal_rounded),
-                label: Text(AppLocalizations.of(context)!.openTerminal),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: AppColors.primary,
-                  padding: const EdgeInsets.symmetric(vertical: 16),
-                  textStyle: const TextStyle(
-                      fontSize: 16, fontWeight: FontWeight.w600),
-                ),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
+// ── 即時ターミナルビュー（Cloud Shell 起動と並行してターミナルフレームを表示） ──
 
-  Widget _buildErrorView(CloudShellService service) {
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(32),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Icon(Icons.error_outline_rounded,
-                color: AppColors.error, size: 48),
-            const SizedBox(height: 16),
-            Text(AppLocalizations.of(context)!.cloudShellError,
-                style: const TextStyle(
-                    color: AppColors.errorLight,
-                    fontSize: 18,
-                    fontWeight: FontWeight.w600)),
-            const SizedBox(height: 12),
-            Text(
-              service.error ?? '',
-              textAlign: TextAlign.center,
-              style:
-                  const TextStyle(color: AppColors.textSecondary, fontSize: 13),
-            ),
-            const SizedBox(height: 28),
-            ElevatedButton.icon(
-              onPressed: () =>
-                  context.read<CloudShellService>().startAndConnect(),
-              icon: const Icon(Icons.refresh_rounded),
-              label: Text(AppLocalizations.of(context)!.retry),
-              style:
-                  ElevatedButton.styleFrom(backgroundColor: AppColors.primary),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
+class _EagerTerminalView extends StatefulWidget {
+  const _EagerTerminalView();
 
-  Widget _buildIdleView(BuildContext context, CloudShellService service) {
-    return Center(
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          const Icon(Icons.cloud_outlined,
-              color: AppColors.textMuted, size: 64),
-          const SizedBox(height: 16),
-          Text(AppLocalizations.of(context)!.cloudShellStopped,
-              style: const TextStyle(color: AppColors.textSecondary)),
-          const SizedBox(height: 24),
-          ElevatedButton.icon(
-            onPressed: () => service.startAndConnect(),
-            icon: const Icon(Icons.play_arrow_rounded),
-            label: Text(AppLocalizations.of(context)!.cloudShellStartButton),
-            style:
-                ElevatedButton.styleFrom(backgroundColor: AppColors.primary),
-          ),
-        ],
-      ),
-    );
-  }
+  @override
+  State<_EagerTerminalView> createState() => _EagerTerminalViewState();
+}
 
-  void _openTerminal(BuildContext context, CloudShellService service) async {
-    final privateKey = await SecureStorageService.instance.getSshPrivateKey();
-    final repoCommand = service.consumePendingShellCommand();
-    if (!context.mounted) return;
-    Navigator.of(context).push(MaterialPageRoute(
-      builder: (_) => ChangeNotifierProvider(
-        create: (_) => TerminalController(
-          workspaceId: service.pendingRepoName ?? 'cloudshell',
-          sshHost: service.sshHost ?? '',
-          ownerToken: null,
-          sshPrivateKeyPem: privateKey,
-          sshUsername: service.sshUsername ?? 'user',
-          sshPort: service.sshPort,
-          initialCommand: _buildInitialCommand(repoCommand),
-          webHost: service.webHost,
-        ),
-        child: const TerminalScreen(),
-      ),
-    )).then((_) {
-      if (mounted) setState(() {});
+class _EagerTerminalViewState extends State<_EagerTerminalView> {
+  CloudShellService? _serviceRef;
+  PortTunnelConfigService? _tunnelConfig;
+  SshTunnelService? _tunnelService;
+  TerminalController? _ctrl;
+  String? _privateKey;
+  int _handledPendingVersion = 0;
+  String? _overrideInitialCommand;
+
+  // キャッシュ済み Cloud Shell 認証情報（optimistic SSH 接続用）
+  String? _cachedSshHost;
+  String? _cachedSshUsername;
+  int _cachedSshPort = AppConstants.sshPort;
+  String? _cachedWebHost;
+  String? _ctrlHost; // コントローラ生成時に使用したホスト
+
+  @override
+  void initState() {
+    super.initState();
+    // 秘密鍵とキャッシュ済み認証情報を並列でロード
+    SecureStorageService.instance.getSshPrivateKey().then((key) {
+      if (!mounted) return;
+      setState(() => _privateKey = key);
+      _maybeInitController();
     });
+    SecureStorageService.instance.getCloudShellCredentials().then((creds) {
+      if (!mounted || creds == null) return;
+      setState(() {
+        _cachedSshHost = creds['host'] as String?;
+        _cachedSshUsername = creds['username'] as String?;
+        _cachedSshPort = (creds['port'] as int?) ?? AppConstants.sshPort;
+        _cachedWebHost = creds['webHost'] as String?;
+      });
+      _maybeInitController();
+    });
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _serviceRef = context.read<CloudShellService>();
+      _serviceRef!.addListener(_onServiceChanged);
+      _onServiceChanged();
+    });
+  }
+
+  @override
+  void dispose() {
+    _serviceRef?.removeListener(_onServiceChanged);
+    _ctrl?.disconnect().ignore();
+    _ctrl?.dispose();
+    _tunnelService?.dispose();
+    _tunnelConfig?.dispose();
+    super.dispose();
+  }
+
+  void _onServiceChanged() {
+    if (!mounted) return;
+    _maybeInitController();
+    _maybeSendPendingCommand();
+  }
+
+  void _maybeInitController() {
+    final service = _serviceRef ?? context.read<CloudShellService>();
+    if (_privateKey == null) return;
+
+    // ライブ認証情報を優先、なければキャッシュ済みで optimistic 接続
+    final host = (service.isRunning ? service.sshHost : null) ?? _cachedSshHost;
+    if (host == null || host.isEmpty) return;
+
+    if (_ctrl != null) {
+      // ホストが変わった場合（Cloud Shell 再起動後）はコントローラを再生成
+      if (_ctrlHost == host) return;
+      _ctrl!.disconnect().ignore();
+      _ctrl!.dispose();
+      _tunnelService?.dispose();
+      _tunnelConfig?.dispose();
+      _ctrlHost = null;
+      setState(() { _ctrl = null; _tunnelService = null; _tunnelConfig = null; });
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) _maybeInitController();
+      });
+      return;
+    }
+
+    final username = (service.isRunning ? service.sshUsername : null) ?? _cachedSshUsername ?? 'user';
+    final port = service.isRunning ? service.sshPort : _cachedSshPort;
+    final webHost = (service.isRunning ? service.webHost : null) ?? _cachedWebHost;
+
+    final repoCommand = _overrideInitialCommand
+        ?? _buildInitialCommand(service.consumePendingShellCommand());
+    _overrideInitialCommand = null;
+    _handledPendingVersion = service.pendingVersion;
+    _ctrlHost = host;
+
+    final config = PortTunnelConfigService();
+    final tunnel = SshTunnelService(connectionId: 'cloudshell', configService: config);
+    final ctrl = TerminalController(
+      workspaceId: service.pendingRepoName ?? 'cloudshell',
+      sshHost: host,
+      ownerToken: null,
+      sshPrivateKeyPem: _privateKey,
+      sshUsername: username,
+      sshPort: port,
+      initialCommand: repoCommand,
+      webHost: webHost,
+      tunnelService: tunnel,
+    );
+
+    setState(() {
+      _tunnelConfig = config;
+      _tunnelService = tunnel;
+      _ctrl = ctrl;
+    });
+  }
+
+  void _maybeSendPendingCommand() {
+    final service = _serviceRef;
+    if (service == null) return;
+    if (service.pendingRepoName == null) return;
+    if (service.pendingVersion <= _handledPendingVersion) return;
+    _handledPendingVersion = service.pendingVersion;
+
+    if (_ctrl != null) {
+      // 既存コントローラを破棄し、新コマンドで再生成
+      final rawCmd = service.consumePendingShellCommand();
+      _overrideInitialCommand = _buildInitialCommand(rawCmd);
+      _ctrl?.disconnect().ignore();
+      _ctrl?.dispose();
+      _tunnelService?.dispose();
+      _tunnelConfig?.dispose();
+      setState(() {
+        _ctrl = null;
+        _tunnelService = null;
+        _tunnelConfig = null;
+      });
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) _maybeInitController();
+      });
+    }
+    // ctrl == null の場合は _maybeInitController が起動時にコマンドを拾う
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final service = context.watch<CloudShellService>();
+
+    return Stack(
+      children: [
+        if (_ctrl != null)
+          MultiProvider(
+            providers: [
+              ChangeNotifierProvider<PortTunnelConfigService>.value(
+                  value: _tunnelConfig!),
+              ChangeNotifierProvider<SshTunnelService>.value(
+                  value: _tunnelService!),
+              ChangeNotifierProvider<TerminalController>.value(value: _ctrl!),
+            ],
+            child: const TerminalScreen(embedded: true),
+          )
+        else
+          const SizedBox.expand(),
+
+        if (service.state == CloudShellState.error)
+          _buildErrorOverlay(context, service),
+      ],
+    );
+  }
+
+  Widget _buildErrorOverlay(BuildContext context, CloudShellService service) {
+    final l = AppLocalizations.of(context)!;
+    return Container(
+      color: AppColors.terminalBackground,
+      child: Center(
+        child: Container(
+          margin: const EdgeInsets.all(32),
+          padding: const EdgeInsets.all(28),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(color: AppColors.error.withOpacity(0.20)),
+            boxShadow: [
+              BoxShadow(
+                color: AppColors.error.withOpacity(0.08),
+                blurRadius: 24,
+                offset: const Offset(0, 6),
+              ),
+            ],
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Icon(Icons.error_outline_rounded,
+                  color: AppColors.error, size: 48),
+              const SizedBox(height: 16),
+              Text(l.cloudShellError,
+                  style: const TextStyle(
+                      color: AppColors.textPrimary,
+                      fontSize: 18,
+                      fontWeight: FontWeight.w600)),
+              const SizedBox(height: 12),
+              Text(
+                service.error ?? '',
+                textAlign: TextAlign.center,
+                style: const TextStyle(
+                    color: AppColors.textSecondary, fontSize: 13),
+              ),
+              const SizedBox(height: 28),
+              ElevatedButton.icon(
+                onPressed: () =>
+                    context.read<CloudShellService>().startAndConnect(),
+                icon: const Icon(Icons.refresh_rounded),
+                label: Text(l.retry),
+                style: ElevatedButton.styleFrom(
+                    backgroundColor: AppColors.primary),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
   }
 
   String _buildInitialCommand(String? repoCommand) {
     const s = 'k';
-    if (repoCommand == null) {
-      return 'tmux new-session -A -s $s';
-    }
+    if (repoCommand == null) return 'tmux new-session -A -s $s';
     final escaped = repoCommand.replaceAll("'", r"'\''");
     return "tmux new-session -d -s $s 2>/dev/null || true; "
         "tmux send-keys -t $s '$escaped' Enter; "
         "tmux attach-session -t $s";
   }
-
 }
+

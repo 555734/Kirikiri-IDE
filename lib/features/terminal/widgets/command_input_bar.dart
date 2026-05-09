@@ -79,6 +79,11 @@ class _CommandInputBarState extends State<CommandInputBar> {
     final text = _controller.text;
     if (text.isEmpty) return;
     widget.onSend('$text\n');
+    if (!_favorites.contains(text)) {
+      _favorites.insert(0, text);
+      if (_favorites.length > 100) _favorites = _favorites.take(100).toList();
+      _saveFavorites();
+    }
     _controller.clear();
   }
 
@@ -87,46 +92,6 @@ class _CommandInputBarState extends State<CommandInputBar> {
     _controller.selection =
         TextSelection.fromPosition(TextPosition(offset: cmd.length));
     _focusNode.requestFocus();
-  }
-
-  void _addToFavorites() {
-    final text = _controller.text.trim();
-    if (text.isEmpty) return;
-    final l = AppLocalizations.of(context)!;
-    if (_favorites.contains(text)) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(l.favoriteAlreadyExists),
-          duration: const Duration(seconds: 1),
-          behavior: SnackBarBehavior.floating,
-        ),
-      );
-      return;
-    }
-    HapticFeedback.lightImpact();
-    setState(() {
-      _favorites.insert(0, text);
-      if (_favorites.length > 100) _favorites = _favorites.take(100).toList();
-      _updateSuggestions();
-    });
-    _saveFavorites();
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(l.favoriteAdded),
-        duration: const Duration(seconds: 1),
-        behavior: SnackBarBehavior.floating,
-        action: SnackBarAction(
-          label: l.undo,
-          onPressed: () {
-            setState(() {
-              _favorites.remove(text);
-              _updateSuggestions();
-            });
-            _saveFavorites();
-          },
-        ),
-      ),
-    );
   }
 
   void _removeFromFavorites(String cmd) {
@@ -167,8 +132,6 @@ class _CommandInputBarState extends State<CommandInputBar> {
     );
   }
 
-  bool get _isFavorite => _favorites.contains(_controller.text.trim());
-
   @override
   Widget build(BuildContext context) {
     return Column(
@@ -195,7 +158,7 @@ class _CommandInputBarState extends State<CommandInputBar> {
                   height: 38,
                   decoration: BoxDecoration(
                     color: const Color(0xFFFFE8E8),
-                    borderRadius: BorderRadius.circular(8),
+                    borderRadius: BorderRadius.circular(10),
                     border: Border.all(color: const Color(0xFFE8D5D5)),
                   ),
                   child: TextField(
@@ -223,19 +186,6 @@ class _CommandInputBarState extends State<CommandInputBar> {
                   ),
                 ),
               ),
-              const SizedBox(width: 4),
-
-              // お気に入り追加/済みボタン
-              _BarIconButton(
-                icon: _isFavorite
-                    ? Icons.star_rounded
-                    : Icons.star_border_rounded,
-                color: _isFavorite ? AppColors.warning : const Color(0xFFBBAA9A),
-                tooltip: 'お気に入りに追加',
-                onTap: _isFavorite ? null : _addToFavorites,
-                bgColor: const Color(0xFFFFE8E8),
-              ),
-
               const SizedBox(width: 4),
 
               // 送信ボタン
@@ -342,26 +292,41 @@ class _BarIconButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final active = filled && onTap != null;
     return Tooltip(
       message: tooltip,
-      child: Material(
-        color: filled && onTap != null ? AppColors.primary : bgColor,
-        borderRadius: BorderRadius.circular(8),
-        child: InkWell(
-          onTap: onTap != null
-              ? () {
-                  HapticFeedback.lightImpact();
-                  onTap!();
-                }
-              : null,
+      child: Container(
+        decoration: active
+            ? BoxDecoration(
+                borderRadius: BorderRadius.circular(8),
+                boxShadow: [
+                  BoxShadow(
+                    color: AppColors.primary.withOpacity(0.35),
+                    blurRadius: 6,
+                    offset: const Offset(0, 2),
+                  ),
+                ],
+              )
+            : null,
+        child: Material(
+          color: active ? AppColors.primary : bgColor,
           borderRadius: BorderRadius.circular(8),
-          child: SizedBox(
-            width: 38,
-            height: 38,
-            child: Icon(
-              icon,
-              size: 20,
-              color: filled && onTap != null ? Colors.white : color,
+          child: InkWell(
+            onTap: onTap != null
+                ? () {
+                    HapticFeedback.lightImpact();
+                    onTap!();
+                  }
+                : null,
+            borderRadius: BorderRadius.circular(8),
+            child: SizedBox(
+              width: 38,
+              height: 38,
+              child: Icon(
+                icon,
+                size: 20,
+                color: active ? Colors.white : color,
+              ),
             ),
           ),
         ),

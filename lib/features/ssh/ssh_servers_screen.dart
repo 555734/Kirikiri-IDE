@@ -4,6 +4,8 @@ import 'package:provider/provider.dart';
 
 import '../../core/screenshot_mode.dart';
 import '../../theme/app_theme.dart';
+import '../preview/port_tunnel_config_service.dart';
+import '../preview/ssh_tunnel_service.dart';
 import '../terminal/demo_terminal_screen.dart';
 import '../terminal/terminal_controller.dart';
 import '../terminal/terminal_screen.dart';
@@ -265,18 +267,32 @@ class _ConnectionCard extends StatelessWidget {
 
     if (!context.mounted) return;
     Navigator.of(context).push(MaterialPageRoute(
-      builder: (_) => ChangeNotifierProvider(
-        create: (_) => TerminalController(
-          workspaceId: conn.label,
-          sshHost: conn.host,
-          ownerToken: password,
-          sshPrivateKeyPem:
-              (privateKey != null && privateKey.isNotEmpty)
-                  ? privateKey
-                  : null,
-          sshUsername: conn.username,
-          sshPort: conn.port,
-        ),
+      builder: (_) => MultiProvider(
+        providers: [
+          ChangeNotifierProvider(create: (_) => PortTunnelConfigService()),
+          ChangeNotifierProxyProvider<PortTunnelConfigService, SshTunnelService>(
+            create: (ctx) => SshTunnelService(
+              connectionId: conn.id,
+              configService: ctx.read<PortTunnelConfigService>(),
+            ),
+            update: (_, __, tunnel) => tunnel!,
+          ),
+          ChangeNotifierProxyProvider<SshTunnelService, TerminalController>(
+            create: (ctx) => TerminalController(
+              workspaceId: conn.label,
+              sshHost: conn.host,
+              ownerToken: password,
+              sshPrivateKeyPem:
+                  (privateKey != null && privateKey.isNotEmpty)
+                      ? privateKey
+                      : null,
+              sshUsername: conn.username,
+              sshPort: conn.port,
+              tunnelService: ctx.read<SshTunnelService>(),
+            ),
+            update: (_, __, ctrl) => ctrl!,
+          ),
+        ],
         child: const TerminalScreen(),
       ),
     ));

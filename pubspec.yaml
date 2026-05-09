@@ -34,6 +34,9 @@ dependencies:
   # 外部ブラウザ起動
   url_launcher: ^6.3.0
 
+  # Apple SF Pro 風フォント（Inter）
+  google_fonts: ^6.2.1
+
   # Webプレビュー用インアップWebView
   webview_flutter: ^4.4.4
 

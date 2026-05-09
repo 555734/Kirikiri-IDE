@@ -133,6 +133,19 @@ class AppLocalizationsEn extends AppLocalizations {
   String get cloudShellFirstLaunchNote => 'First launch may take ~30 seconds';
 
   @override
+  String get startupStepPreparingKey => 'Preparing SSH key';
+  @override
+  String get startupStepCheckingState => 'Checking environment';
+  @override
+  String get startupStepStarting => 'Starting environment';
+  @override
+  String get startupStepWaitingRunning => 'Waiting for startup';
+  @override
+  String get startupStepRegisteringKey => 'Registering SSH key';
+  @override
+  String startupElapsed(int seconds) => '${seconds}s elapsed';
+
+  @override
   String get cloudShellRunning => 'Cloud Shell Ready';
 
   @override
@@ -569,4 +582,181 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get version => 'Version';
+
+  @override
+  String get tunnelActive => 'Active';
+
+  @override
+  String get tunnelStop => 'Stop';
+
+  @override
+  String get portDetect => 'Detect';
+
+  @override
+  String get portDetecting => 'Scanning...';
+
+  @override
+  String get portDetectedNone => 'No ports found';
+
+  @override
+  String get savedPorts => 'Saved Ports';
+
+  @override
+  String get addPort => 'Add Port';
+
+  @override
+  String get portLabel => 'Label';
+
+  @override
+  String get portNumber => 'Port';
+
+  @override
+  String get launcherTitle => 'Launcher';
+
+  @override
+  String get launcherAddCategory => 'Add Category';
+
+  @override
+  String get launcherAddCommand => 'Add Command';
+
+  @override
+  String get launcherCategoryLabel => 'Category Name';
+
+  @override
+  String get launcherIcon => 'Icon (emoji)';
+
+  @override
+  String get launcherCommandLabel => 'Label';
+
+  @override
+  String get launcherCommandHint => 'Command';
+
+  @override
+  String get launcherEmptyCategories => 'No categories yet. Tap + to add one.';
+
+  @override
+  String get launcherEmptyCommands => 'No commands yet.';
+
+  @override
+  String get launcherRun => 'Run';
+
+  @override
+  String get launcherDeleteCategory => 'Delete Category';
+
+  @override
+  String get cicdTitle => 'CI/CD';
+
+  @override
+  String get cicdNoRuns => 'No workflow runs found';
+
+  @override
+  String get cicdNoJobs => 'No jobs found';
+
+  @override
+  String get cicdRunning => 'running';
+
+  @override
+  String get branchesTitle => 'Branches';
+
+  @override
+  String get pullRequestsTitle => 'Pull Requests';
+
+  @override
+  String get branchNew => 'New Branch';
+
+  @override
+  String get branchName => 'Branch Name';
+
+  @override
+  String get branchFrom => 'From';
+
+  @override
+  String get branchDelete => 'Delete Branch';
+
+  @override
+  String get branchDeleteConfirm => 'Delete this branch?';
+
+  @override
+  String get branchProtected => 'Protected';
+
+  @override
+  String get branchesEmpty => 'No branches';
+
+  @override
+  String get prNew => 'New Pull Request';
+
+  @override
+  String get prTitleLabel => 'Title';
+
+  @override
+  String get prBodyLabel => 'Description (optional)';
+
+  @override
+  String get prCreate => 'Create';
+
+  @override
+  String get prHead => 'Head Branch';
+
+  @override
+  String get prBase => 'Base Branch';
+
+  @override
+  String get prStateOpen => 'Open';
+
+  @override
+  String get prStateClosed => 'Closed';
+
+  @override
+  String get prEmpty => 'No pull requests';
+
+  @override
+  String get apiTestTitle => 'API Test';
+
+  @override
+  String get apiTestSend => 'Send';
+
+  @override
+  String get apiTestResponse => 'Response';
+
+  @override
+  String get apiTestBody => 'Body';
+
+  @override
+  String get apiTestHeaders => 'Headers';
+
+  @override
+  String get apiTestAddHeader => 'Add Header';
+
+  @override
+  String get apiTestInsertApiKey => 'Insert API Key';
+
+  @override
+  String get apiTestNoApiKeys => 'No API keys saved';
+
+  @override
+  String get additionalFeaturesSection => 'Additional Features';
+
+  @override
+  String get featureSshTab => 'SSH Servers Tab';
+
+  @override
+  String get featureSshTabSubtitle => 'Connect to custom SSH servers';
+
+  @override
+  String get featureApiKeys => 'API Keys & Test';
+
+  @override
+  String get featureApiKeysSubtitle => 'Manage keys and test REST APIs';
+
+  @override
+  String get featureCicd => 'CI/CD';
+
+  @override
+  String get featureCicdSubtitle => 'View GitHub Actions workflows';
+
+  @override
+  String get featurePlugins => 'Plugins';
+
+  @override
+  String get featurePluginsSubtitle => 'Extend with community plugins';
 }

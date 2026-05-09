@@ -2,7 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:kirikiri/l10n/app_localizations.dart';
 import 'package:provider/provider.dart';
 
+import '../../core/feature_flag_service.dart';
 import '../../theme/app_theme.dart';
+import '../../widgets/skeleton_box.dart';
+import 'branches_pr_screen.dart';
+import 'ci_cd_screen.dart';
 import 'file_editor_screen.dart';
 import 'github_service.dart';
 
@@ -11,9 +15,12 @@ class RepoDetailScreen extends StatefulWidget {
     super.key,
     required this.repo,
     required this.onOpenInShell,
+    this.treeFuture,
   });
   final GitHubRepo repo;
   final VoidCallback onOpenInShell;
+  /// Prefetch された Future。渡すと遷移アニメーション中にフェッチが並走する。
+  final Future<List<GitHubFile>>? treeFuture;
 
   @override
   State<RepoDetailScreen> createState() => _RepoDetailScreenState();
@@ -38,13 +45,15 @@ class _RepoDetailScreenState extends State<RepoDetailScreen> {
     });
     try {
       final github = context.read<GitHubService>();
-      final tree = await github.getFileTree(
-          widget.repo.owner, widget.repo.name, widget.repo.defaultBranch);
-      setState(() => _tree = tree);
+      // prefetch済みの Future があればそれを使い、なければ新規フェッチ
+      final tree = await (widget.treeFuture ??
+          github.getFileTree(
+              widget.repo.owner, widget.repo.name, widget.repo.defaultBranch));
+      if (mounted) setState(() => _tree = tree);
     } catch (e) {
-      setState(() => _error = e.toString());
+      if (mounted) setState(() => _error = e.toString());
     } finally {
-      setState(() => _loading = false);
+      if (mounted) setState(() => _loading = false);
     }
   }
 
@@ -81,6 +90,24 @@ class _RepoDetailScreenState extends State<RepoDetailScreen> {
         title: Text(widget.repo.fullName,
             style: const TextStyle(fontSize: 14)),
         actions: [
+          IconButton(
+            icon: const Icon(Icons.call_merge_rounded, size: 20),
+            tooltip: AppLocalizations.of(context)!.branchesTitle,
+            onPressed: () => Navigator.of(context).push(MaterialPageRoute(
+              builder: (_) => BranchesPrScreen(
+                repo: widget.repo,
+                onSwitchToShell: widget.onOpenInShell,
+              ),
+            )),
+          ),
+          if (context.watch<FeatureFlagService>().cicd)
+            IconButton(
+              icon: const Icon(Icons.rocket_launch_rounded, size: 20),
+              tooltip: AppLocalizations.of(context)!.cicdTitle,
+              onPressed: () => Navigator.of(context).push(MaterialPageRoute(
+                builder: (_) => CiCdScreen(repo: widget.repo),
+              )),
+            ),
           ElevatedButton.icon(
             onPressed: widget.onOpenInShell,
             icon: const Icon(Icons.terminal_rounded, size: 16),
@@ -148,9 +175,8 @@ class _RepoDetailScreenState extends State<RepoDetailScreen> {
   }
 
   Widget _buildBody() {
-    if (_loading) {
-      return const Center(
-          child: CircularProgressIndicator(color: AppColors.primary));
+    if (_loading && _tree == null) {
+      return _buildSkeleton();
     }
     if (_error != null) {
       return Center(
@@ -180,6 +206,23 @@ class _RepoDetailScreenState extends State<RepoDetailScreen> {
         file: items[i],
         repo: widget.repo,
         onTapDir: (path) => setState(() => _currentDir = path),
+      ),
+    );
+  }
+
+  Widget _buildSkeleton() {
+    return ListView.builder(
+      padding: const EdgeInsets.symmetric(vertical: 4),
+      itemCount: 10,
+      itemBuilder: (_, i) => Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        child: Row(
+          children: [
+            SkeletonBox(width: 18, height: 18),
+            const SizedBox(width: 12),
+            SkeletonBox(width: 80.0 + (i % 4) * 35, height: 13),
+          ],
+        ),
       ),
     );
   }

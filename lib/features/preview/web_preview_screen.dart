@@ -49,7 +49,12 @@ class _WebPreviewScreenState extends State<WebPreviewScreen> {
   }
 
   Future<void> _loadWithAuth() async {
-    final token = await SecureStorageService.instance.getAccessToken();
+    // Only inject Google access token for Cloud Shell proxy URLs (https).
+    // Local tunnel URLs (http://127.0.0.1) don't need auth headers.
+    final isLocal = widget.url.startsWith('http://127.0.0.1');
+    final token = isLocal
+        ? null
+        : await SecureStorageService.instance.getAccessToken();
     _webCtrl.loadRequest(
       Uri.parse(widget.url),
       headers: token != null ? {'Authorization': 'Bearer $token'} : {},
@@ -146,8 +151,15 @@ class _UrlBar extends StatelessWidget {
           ),
           child: Row(
             children: [
-              const Icon(Icons.lock_outline_rounded,
-                  size: 14, color: AppColors.textMuted),
+              Icon(
+                url.startsWith('https://')
+                    ? Icons.lock_outline_rounded
+                    : Icons.lock_open_rounded,
+                size: 14,
+                color: url.startsWith('https://')
+                    ? AppColors.textMuted
+                    : AppColors.warning,
+              ),
               const SizedBox(width: 6),
               Expanded(
                 child: Text(

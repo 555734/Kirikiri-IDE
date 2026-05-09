@@ -3,6 +3,7 @@ import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:kirikiri/l10n/app_localizations.dart';
 import 'package:provider/provider.dart';
 
+import 'core/feature_flag_service.dart';
 import 'core/theme_service.dart';
 import 'features/auth/google_auth_service.dart';
 import 'features/cloudshell/cloud_shell_service.dart';
@@ -33,6 +34,7 @@ class _KirikiriAppState extends State<KirikiriApp> {
   late final SshConnectionService _sshConnectionService;
   late final PluginService _pluginService;
   late final ThemeService _themeService;
+  late final FeatureFlagService _featureFlagService;
 
   @override
   void initState() {
@@ -43,8 +45,10 @@ class _KirikiriAppState extends State<KirikiriApp> {
     _sshConnectionService = SshConnectionService();
     _pluginService = PluginService();
     _themeService = ThemeService();
+    _featureFlagService = FeatureFlagService();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _themeService.load();
+      _featureFlagService.load();
     });
   }
 
@@ -58,6 +62,7 @@ class _KirikiriAppState extends State<KirikiriApp> {
         ChangeNotifierProvider.value(value: _gitHubService),
         ChangeNotifierProvider.value(value: _sshConnectionService),
         ChangeNotifierProvider.value(value: _pluginService),
+        ChangeNotifierProvider.value(value: _featureFlagService),
       ],
       child: Consumer<ThemeService>(
         builder: (_, themeService, __) => MaterialApp(

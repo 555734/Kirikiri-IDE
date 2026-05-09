@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:google_fonts/google_fonts.dart';
 
 /// kirikiri アプリのカラーパレット（薄い赤・白・グレー基調）
 class AppColors {
@@ -33,10 +34,11 @@ class AppColors {
   static const Color textSecondary = Color(0xFF6B7280); // Gray-500
   static const Color textMuted     = Color(0xFF9CA3AF); // Gray-400
 
-  // ── ターミナル専用 (ライト赤白) ────────────────────────
-  static const Color terminalBackground = Color(0xFFFFF5F5); // 赤みがかった白
+  // ── ターミナル専用 ────────────────────────────────────
+  static const Color terminalBackground = Color(0xFF000000); // 黒
   static const Color terminalCursor     = Color(0xFFDC2626); // 赤カーソル
   static const Color terminalSelection  = Color(0x40DC2626); // 半透明赤
+  static const Color terminalForeground = Color(0xFFFFFFFF); // 白前景
 
   // ── 薄い赤のサーフェス (ホバー/選択背景) ──────────────
   static const Color redSurface = Color(0xFFFEF2F2); // Red-50
@@ -140,7 +142,7 @@ class AppTheme {
         color: AppDarkColors.surfaceHighlight, thickness: 1, space: 1,
       ),
       iconTheme: const IconThemeData(color: AppDarkColors.textSecondary, size: 20),
-      textTheme: const TextTheme(
+      textTheme: GoogleFonts.interTextTheme(const TextTheme(
         headlineLarge: TextStyle(color: AppDarkColors.textPrimary, fontSize: 28, fontWeight: FontWeight.w700),
         headlineMedium: TextStyle(color: AppDarkColors.textPrimary, fontSize: 22, fontWeight: FontWeight.w600),
         titleLarge: TextStyle(color: AppDarkColors.textPrimary, fontSize: 18, fontWeight: FontWeight.w600),
@@ -148,7 +150,7 @@ class AppTheme {
         bodyLarge: TextStyle(color: AppDarkColors.textPrimary, fontSize: 15, height: 1.5),
         bodyMedium: TextStyle(color: AppDarkColors.textSecondary, fontSize: 13, height: 1.4),
         labelSmall: TextStyle(color: AppDarkColors.textMuted, fontSize: 11, letterSpacing: 0.5),
-      ),
+      )),
       chipTheme: ChipThemeData(
         backgroundColor: AppDarkColors.surfaceVariant,
         labelStyle: const TextStyle(color: AppDarkColors.textSecondary, fontSize: 12),
@@ -305,7 +307,7 @@ class AppTheme {
       ),
       iconTheme:
           const IconThemeData(color: AppColors.textSecondary, size: 20),
-      textTheme: const TextTheme(
+      textTheme: GoogleFonts.interTextTheme(const TextTheme(
         headlineLarge: TextStyle(
           color: AppColors.textPrimary,
           fontSize: 28,
@@ -343,7 +345,7 @@ class AppTheme {
           fontSize: 11,
           letterSpacing: 0.5,
         ),
-      ),
+      )),
       chipTheme: ChipThemeData(
         backgroundColor: AppColors.surfaceVariant,
         labelStyle: const TextStyle(
