@@ -9,11 +9,17 @@ import 'package:url_launcher/url_launcher.dart';
 import 'package:xterm/xterm.dart' hide TerminalController;
 
 import '../../core/secure_storage_service.dart';
+import '../../core/theme_service.dart';
 import '../../theme/app_theme.dart';
 import '../plugins/loaded_plugin.dart';
 import '../plugins/tui_launcher.dart';
 import '../plugins/widgets/plugin_command_chips.dart';
 import '../plugins/widgets/plugin_toolbar_buttons.dart';
+import '../preview/port_tunnel_config.dart';
+import '../preview/port_tunnel_config_service.dart';
+import '../preview/ssh_tunnel_service.dart';
+import '../preview/web_preview_screen.dart';
+import 'command_launcher.dart';
 import 'ssh_service.dart';
 import 'terminal_controller.dart';
 import 'widgets/command_input_bar.dart';
@@ -34,7 +40,11 @@ import 'widgets/mobile_keyboard_bar.dart';
 ///   │         MobileKeyboardBar     │
 ///   └──────────────────────────────┘
 class TerminalScreen extends StatefulWidget {
-  const TerminalScreen({super.key});
+  const TerminalScreen({super.key, this.embedded = false});
+
+  /// true のとき Scaffold をラップせず body のみを返す。
+  /// Cloud Shell タブへ直接埋め込む場合に使用。
+  final bool embedded;
 
   @override
   State<TerminalScreen> createState() => _TerminalScreenState();
@@ -43,13 +53,15 @@ class TerminalScreen extends StatefulWidget {
 class _TerminalScreenState extends State<TerminalScreen>
     with WidgetsBindingObserver {
   bool _keyboardVisible = false;
-  double _fontSize = 13;
 
   TuiLauncher? _tuiLauncher;
 
   // ── フローティングコマンドバブル ─────────────────────────
   List<_FloatingCommand> _floatingCmds = [];
   bool _floatingEditMode = false;
+
+  // ── UI 全体表示/非表示（イマーシブモード） ──────────────────
+  bool _uiVisible = true;
 
   // ── 右アクションパネル位置（相対座標 0.0–1.0） ──────────
   double _panelRelX = 0.93;
@@ -242,103 +254,105 @@ class _TerminalScreenState extends State<TerminalScreen>
 
   @override
   Widget build(BuildContext context) {
+    final fontSize = context.watch<ThemeService>().terminalFontSize;
     return Consumer<TerminalController>(
       builder: (context, controller, _) {
-        return Scaffold(
-          backgroundColor: AppColors.terminalBackground,
-          body: SafeArea(
-            bottom: false,
-            child: Stack(
+        final body = SafeArea(
+          bottom: false,
+          child: Stack(
               children: [
-                // ── メインコンテンツ列（Stackを全体に埋める）────────
                 Positioned.fill(
                   child: Column(
                     children: [
-                      const SizedBox(height: 46), // 上部オーバーレイ分のスペース
-                      // ターミナル領域（右側アクションボタンも内包）
+                      // 上部オーバーレイ分のスペース（非 embedded かつ UI 表示時のみ）
+                      if (!widget.embedded && _uiVisible) const SizedBox(height: 46),
                       Expanded(
-                        child: _buildTerminalArea(context, controller),
+                        child: _buildTerminalArea(context, controller, fontSize),
                       ),
-                      PluginCommandChips(
-                        onSend: (cmd) =>
-                            controller.terminal.onOutput?.call(cmd),
-                      ),
-                      CommandInputBar(
-                        enabled: controller.isConnected,
-                        onSend: (data) =>
-                            controller.terminal.onOutput?.call(data),
-                      ),
-                      MobileKeyboardBar(
-                        onInput: controller.isConnected
-                            ? (data) =>
-                                controller.terminal.onOutput?.call(data)
-                            : (_) {},
-                      ),
+                      if (_uiVisible)
+                        PluginCommandChips(
+                          onSend: (cmd) =>
+                              controller.terminal.onOutput?.call(cmd),
+                        ),
+                      if (_uiVisible)
+                        CommandInputBar(
+                          enabled: controller.isConnected,
+                          onSend: (data) =>
+                              controller.terminal.onOutput?.call(data),
+                        ),
+                      if (_uiVisible)
+                        MobileKeyboardBar(
+                          onInput: controller.isConnected
+                              ? (data) =>
+                                  controller.terminal.onOutput?.call(data)
+                              : (_) {},
+                        ),
                     ],
                   ),
                 ),
 
-                // ── トップオーバーレイ: 戻るボタン + 接続状態 ─────────
-                Positioned(
-                  top: 0,
-                  left: 0,
-                  right: 0,
-                  child: Container(
-                    color: const Color(0xD0161B22),
-                    child: Row(
-                    children: [
-                      // 戻るボタン（左上）
-                      Material(
-                        color: Colors.transparent,
-                        child: InkWell(
-                          borderRadius: BorderRadius.circular(24),
-                          onTap: () async {
-                            await controller.disconnect();
-                            if (context.mounted) {
-                              Navigator.of(context).pop();
-                            }
-                          },
-                          child: Container(
-                            padding: const EdgeInsets.all(12),
-                            child: const Icon(
-                              Icons.arrow_back_rounded,
-                              color: Colors.white,
-                              size: 22,
+                // 非 embedded かつ UI 表示時のみトップバーを表示
+                if (!widget.embedded && _uiVisible)
+                  Positioned(
+                    top: 0,
+                    left: 0,
+                    right: 0,
+                    child: Container(
+                      color: AppColors.surface.withOpacity(0.95),
+                      child: Row(
+                        children: [
+                          Material(
+                            color: Colors.transparent,
+                            child: InkWell(
+                              borderRadius: BorderRadius.circular(24),
+                              onTap: () async {
+                                await controller.disconnect();
+                                if (context.mounted) {
+                                  Navigator.of(context).pop();
+                                }
+                              },
+                              child: Container(
+                                padding: const EdgeInsets.all(12),
+                                child: const Icon(
+                                  Icons.arrow_back_rounded,
+                                  color: AppColors.primary,
+                                  size: 22,
+                                ),
+                              ),
                             ),
                           ),
-                        ),
-                      ),
-                      const SizedBox(width: 4),
-                      // 接続状態インジケーター
-                      _ConnectionIndicator(
-                          state: controller.connectionState),
-                      const SizedBox(width: 6),
-                      // ワークスペース名
-                      Expanded(
-                        child: Text(
-                          controller.workspaceId,
-                          style: const TextStyle(
-                            color: Colors.white60,
-                            fontSize: 11,
-                            fontFamily: 'monospace',
+                          const SizedBox(width: 4),
+                          _ConnectionIndicator(
+                              state: controller.connectionState),
+                          const SizedBox(width: 6),
+                          Expanded(
+                            child: Text(
+                              controller.workspaceId,
+                              style: const TextStyle(
+                                color: AppColors.textSecondary,
+                                fontSize: 11,
+                                fontFamily: 'monospace',
+                              ),
+                              overflow: TextOverflow.ellipsis,
+                            ),
                           ),
-                          overflow: TextOverflow.ellipsis,
-                        ),
+                          PluginToolbarButtons(
+                            onCommandAction: (cmd) =>
+                                controller.terminal.onOutput?.call(cmd),
+                            onTuiAction: (plugin, entry) => _handleTuiAction(
+                                context, controller, plugin, entry),
+                          ),
+                        ],
                       ),
-                      // プラグインツールバーボタン
-                      PluginToolbarButtons(
-                        onCommandAction: (cmd) =>
-                            controller.terminal.onOutput?.call(cmd),
-                        onTuiAction: (plugin, entry) => _handleTuiAction(
-                            context, controller, plugin, entry),
-                      ),
-                    ],
+                    ),
                   ),
-                  ),
-                ),
               ],
             ),
-          ),
+        );
+        if (widget.embedded) return body;
+        return Scaffold(
+          backgroundColor: AppColors.terminalBackground,
+          body: body,
         );
       },
     );
@@ -347,7 +361,7 @@ class _TerminalScreenState extends State<TerminalScreen>
   // ── ターミナル領域（右側アクションボタン含む） ─────────────
 
   Widget _buildTerminalArea(
-      BuildContext context, TerminalController controller) {
+      BuildContext context, TerminalController controller, double fontSize) {
     return LayoutBuilder(
       builder: (context, constraints) {
         return Stack(
@@ -361,8 +375,8 @@ class _TerminalScreenState extends State<TerminalScreen>
                       controller.terminal,
                       controller: controller.xtermController,
                       theme: _terminalTheme,
-                      textStyle: TerminalStyle(fontSize: _fontSize),
-                      autofocus: true,
+                      textStyle: TerminalStyle(fontSize: fontSize),
+                      autofocus: !widget.embedded,
                       backgroundOpacity: 1.0,
                       simulateScroll: true,
                       onSecondaryTapDown: (details, offset) =>
@@ -381,11 +395,12 @@ class _TerminalScreenState extends State<TerminalScreen>
             ),
 
             // ── フローティングコマンドバブル ──────────────────────
-            for (final cmd in _floatingCmds)
-              _buildOneBubble(context, controller, constraints, cmd),
+            if (_uiVisible)
+              for (final cmd in _floatingCmds)
+                _buildOneBubble(context, controller, constraints, cmd),
 
             // 編集モード: 追加ボタン
-            if (_floatingEditMode)
+            if (_uiVisible && _floatingEditMode)
               Positioned(
                 left: 12,
                 bottom: 12,
@@ -411,7 +426,8 @@ class _TerminalScreenState extends State<TerminalScreen>
                 ),
               ),
 
-            // ── 右側アクションパネル（ドラッグで移動可能） ────────
+            // ── 右側アクションパネル（UI 表示時のみ） ──────────────
+            if (_uiVisible)
             Builder(builder: (_) {
               const panelW = 60.0;
               final left = (_panelRelX * constraints.maxWidth - panelW / 2)
@@ -433,8 +449,17 @@ class _TerminalScreenState extends State<TerminalScreen>
                   onPanEnd: (_) => _savePanelPosition(),
                   child: Container(
                     decoration: BoxDecoration(
-                      color: const Color(0xCC161B22),
-                      borderRadius: BorderRadius.circular(28),
+                      color: Colors.white.withOpacity(0.96),
+                      borderRadius: BorderRadius.circular(20),
+                      border: Border.all(
+                          color: const Color(0xFFEDD5D5), width: 1),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withOpacity(0.10),
+                          blurRadius: 16,
+                          offset: const Offset(0, 4),
+                        ),
+                      ],
                     ),
                     padding: const EdgeInsets.symmetric(
                         horizontal: 4, vertical: 8),
@@ -442,16 +467,23 @@ class _TerminalScreenState extends State<TerminalScreen>
                       mainAxisSize: MainAxisSize.min,
                       children: [
                         // ドラッグハンドル
-                        const Icon(Icons.drag_handle_rounded,
-                            color: Colors.white24, size: 18),
+                        Icon(Icons.drag_handle_rounded,
+                            color: AppColors.primary.withOpacity(0.25),
+                            size: 18),
                         const SizedBox(height: 2),
-                        if (controller.webHost != null)
+                        if (controller.isConnected)
                           _TikTokActionButton(
                             icon: Icons.open_in_browser_rounded,
                             label: AppLocalizations.of(context)!.preview,
-                            onTap: () => _showPortPicker(
-                                context, controller.webHost!),
+                            onTap: () => _showPortPicker(context, controller),
                           ),
+                        // コマンドランチャー
+                        _TikTokActionButton(
+                          icon: Icons.grid_view_rounded,
+                          label: AppLocalizations.of(context)!.launcherTitle,
+                          onTap: () =>
+                              _showCommandLauncher(context, controller),
+                        ),
                         // コマンド実行ボタン（プレビューの下）
                         _TikTokActionButton(
                           icon: Icons.play_arrow_rounded,
@@ -477,6 +509,21 @@ class _TerminalScreenState extends State<TerminalScreen>
                             color: AppColors.warning,
                             onTap: controller.reconnect,
                           ),
+                        // 全バッファコピー
+                        if (controller.isConnected)
+                          _TikTokActionButton(
+                            icon: Icons.copy_all_rounded,
+                            label: AppLocalizations.of(context)!.copy,
+                            onTap: () =>
+                                _copyAllOutput(context, controller),
+                          ),
+                        // UI 全非表示ボタン
+                        _TikTokActionButton(
+                          icon: Icons.keyboard_hide_rounded,
+                          label: '非表示',
+                          color: AppColors.primary,
+                          onTap: () => setState(() => _uiVisible = false),
+                        ),
                         _TikTokActionButton(
                           icon: _floatingEditMode
                               ? Icons.check_circle_rounded
@@ -486,14 +533,9 @@ class _TerminalScreenState extends State<TerminalScreen>
                               : AppLocalizations.of(context)!.buttonsEdit,
                           color: _floatingEditMode
                               ? AppColors.success
-                              : Colors.white,
+                              : AppColors.primary,
                           onTap: () => setState(
                               () => _floatingEditMode = !_floatingEditMode),
-                        ),
-                        _TikTokFontSizeButton(
-                          fontSize: _fontSize,
-                          onChanged: (size) =>
-                              setState(() => _fontSize = size),
                         ),
                       ],
                     ),
@@ -501,6 +543,33 @@ class _TerminalScreenState extends State<TerminalScreen>
                 ),
               );
             }),
+
+            // ── UI 非表示時の復元ボタン ──────────────────────────
+            if (!_uiVisible)
+              Positioned(
+                bottom: 24,
+                right: 16,
+                child: GestureDetector(
+                  onTap: () => setState(() => _uiVisible = true),
+                  child: Container(
+                    width: 40,
+                    height: 40,
+                    decoration: BoxDecoration(
+                      color: AppColors.primary.withOpacity(0.75),
+                      shape: BoxShape.circle,
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withOpacity(0.30),
+                          blurRadius: 8,
+                          offset: const Offset(0, 2),
+                        ),
+                      ],
+                    ),
+                    child: const Icon(Icons.menu_rounded,
+                        color: Colors.white, size: 20),
+                  ),
+                ),
+              ),
           ],
         );
       },
@@ -555,6 +624,23 @@ class _TerminalScreenState extends State<TerminalScreen>
     );
   }
 
+  // ── 全バッファコピー ──────────────────────────────────────
+
+  Future<void> _copyAllOutput(
+      BuildContext context, TerminalController controller) async {
+    final text = controller.terminal.buffer.getText();
+    if (text.isEmpty) return;
+    await Clipboard.setData(ClipboardData(text: text));
+    if (context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(AppLocalizations.of(context)!.copied),
+          duration: const Duration(seconds: 1),
+        ),
+      );
+    }
+  }
+
   // ── 接続中オーバーレイ ────────────────────────────────────
 
   Widget _buildConnectingOverlay(BuildContext context) {
@@ -565,9 +651,16 @@ class _TerminalScreenState extends State<TerminalScreen>
           padding:
               const EdgeInsets.symmetric(horizontal: 28, vertical: 24),
           decoration: BoxDecoration(
-            color: const Color(0xFF161B22),
+            color: Colors.white,
             borderRadius: BorderRadius.circular(16),
-            border: Border.all(color: Colors.white12),
+            border: Border.all(color: const Color(0xFFEDD5D5)),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.08),
+                blurRadius: 16,
+                offset: const Offset(0, 4),
+              ),
+            ],
           ),
           child: Column(
             mainAxisSize: MainAxisSize.min,
@@ -576,10 +669,12 @@ class _TerminalScreenState extends State<TerminalScreen>
               const SizedBox(height: 16),
               Text(AppLocalizations.of(context)!.sshConnecting,
                   style: const TextStyle(
-                      color: Colors.white, fontWeight: FontWeight.w600)),
+                      color: AppColors.textPrimary,
+                      fontWeight: FontWeight.w600)),
               const SizedBox(height: 6),
               Text(AppLocalizations.of(context)!.sshConnectingToServer,
-                  style: const TextStyle(color: Colors.white60, fontSize: 13)),
+                  style: const TextStyle(
+                      color: AppColors.textSecondary, fontSize: 13)),
             ],
           ),
         ),
@@ -598,10 +693,16 @@ class _TerminalScreenState extends State<TerminalScreen>
           margin: const EdgeInsets.all(32),
           padding: const EdgeInsets.all(24),
           decoration: BoxDecoration(
-            color: const Color(0xFF161B22),
+            color: Colors.white,
             borderRadius: BorderRadius.circular(16),
-            border:
-                Border.all(color: AppColors.error.withOpacity(0.4)),
+            border: Border.all(color: AppColors.error.withOpacity(0.25)),
+            boxShadow: [
+              BoxShadow(
+                color: AppColors.error.withOpacity(0.08),
+                blurRadius: 20,
+                offset: const Offset(0, 4),
+              ),
+            ],
           ),
           child: Column(
             mainAxisSize: MainAxisSize.min,
@@ -611,7 +712,7 @@ class _TerminalScreenState extends State<TerminalScreen>
               const SizedBox(height: 14),
               Text(AppLocalizations.of(context)!.connectionError,
                   style: const TextStyle(
-                    color: AppColors.errorLight,
+                    color: AppColors.textPrimary,
                     fontSize: 16,
                     fontWeight: FontWeight.w600,
                   )),
@@ -621,7 +722,7 @@ class _TerminalScreenState extends State<TerminalScreen>
                   controller.errorMessage!,
                   textAlign: TextAlign.center,
                   style: const TextStyle(
-                      color: Colors.white60, fontSize: 13),
+                      color: AppColors.textSecondary, fontSize: 13),
                 ),
               ],
               const SizedBox(height: 20),
@@ -636,11 +737,12 @@ class _TerminalScreenState extends State<TerminalScreen>
               TextButton.icon(
                 onPressed: () =>
                     _showSshLog(context, controller.sshLog),
-                icon: const Icon(Icons.list_alt_rounded,
-                    size: 16, color: Colors.white38),
+                icon: Icon(Icons.list_alt_rounded,
+                    size: 16,
+                    color: AppColors.textMuted),
                 label: Text(AppLocalizations.of(context)!.showSshLog,
-                    style: const TextStyle(
-                        color: Colors.white38, fontSize: 12)),
+                    style: TextStyle(
+                        color: AppColors.textMuted, fontSize: 12)),
               ),
             ],
           ),
@@ -655,22 +757,24 @@ class _TerminalScreenState extends State<TerminalScreen>
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
-        backgroundColor: const Color(0xFF161B22),
+        backgroundColor: AppColors.surface,
         title: Text(AppLocalizations.of(context)!.sshLog,
-            style: const TextStyle(color: Colors.white, fontSize: 15)),
+            style: const TextStyle(
+                color: AppColors.textPrimary, fontSize: 15)),
         content: SizedBox(
           width: double.maxFinite,
           height: 300,
           child: logs.isEmpty
               ? Center(
                   child: Text(AppLocalizations.of(context)!.noLogs,
-                      style: const TextStyle(color: Colors.white38)))
+                      style: const TextStyle(
+                          color: AppColors.textMuted)))
               : ListView.builder(
                   itemCount: logs.length,
                   itemBuilder: (_, i) => Text(
                     logs[i],
                     style: const TextStyle(
-                        color: Colors.white60,
+                        color: AppColors.textSecondary,
                         fontSize: 11,
                         fontFamily: 'monospace'),
                   ),
@@ -695,17 +799,17 @@ class _TerminalScreenState extends State<TerminalScreen>
       context: context,
       position: RelativeRect.fromLTRB(
           position.dx, position.dy, position.dx, position.dy),
-      color: const Color(0xFF1C2128),
+      color: AppColors.surface,
       shape:
           RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
       items: [
         PopupMenuItem(
           child: Row(children: [
             const Icon(Icons.content_paste_rounded,
-                size: 16, color: Colors.white54),
+                size: 16, color: AppColors.textSecondary),
             const SizedBox(width: 10),
             Text(AppLocalizations.of(context)!.paste,
-                style: const TextStyle(color: Colors.white)),
+                style: const TextStyle(color: AppColors.textPrimary)),
           ]),
           onTap: () async {
             final data = await Clipboard.getData(Clipboard.kTextPlain);
@@ -717,10 +821,10 @@ class _TerminalScreenState extends State<TerminalScreen>
         PopupMenuItem(
           child: Row(children: [
             const Icon(Icons.content_copy_rounded,
-                size: 16, color: Colors.white54),
+                size: 16, color: AppColors.textSecondary),
             const SizedBox(width: 10),
             Text(AppLocalizations.of(context)!.copy,
-                style: const TextStyle(color: Colors.white)),
+                style: const TextStyle(color: AppColors.textPrimary)),
           ]),
           onTap: () => _copySelection(context, controller),
         ),
@@ -751,104 +855,32 @@ class _TerminalScreenState extends State<TerminalScreen>
     }
   }
 
-  // ── Webプレビュー ─────────────────────────────────────────
+  // ── コマンドランチャー ─────────────────────────────────────
 
-  void _showPortPicker(BuildContext context, String webHost) {
-    final portCtrl = TextEditingController();
-    const commonPorts = [3000, 4200, 5000, 5173, 8000, 8080];
-
-    void openPreview(int port) {
-      final url = 'https://$port-$webHost';
-      launchUrl(Uri.parse(url), mode: LaunchMode.inAppBrowserView);
-    }
-
+  void _showCommandLauncher(
+      BuildContext context, TerminalController controller) {
     showModalBottomSheet(
       context: context,
-      backgroundColor: const Color(0xFF161B22),
+      backgroundColor: AppColors.surface,
+      isScrollControlled: true,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
       ),
-      builder: (ctx) => Padding(
-        padding: EdgeInsets.fromLTRB(
-            20, 20, 20, 20 + MediaQuery.of(ctx).viewInsets.bottom),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(AppLocalizations.of(context)!.portPickerTitle,
-                style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 16,
-                    fontWeight: FontWeight.w700)),
-            const SizedBox(height: 4),
-            Text(AppLocalizations.of(context)!.portPickerBody,
-                style: TextStyle(
-                    color: Colors.white.withOpacity(0.5), fontSize: 12)),
-            const SizedBox(height: 16),
-            Wrap(
-              spacing: 8,
-              runSpacing: 8,
-              children: commonPorts
-                  .map((port) => ActionChip(
-                        label: Text('$port',
-                            style: const TextStyle(
-                                color: Colors.white,
-                                fontFamily: 'monospace')),
-                        backgroundColor:
-                            AppColors.primary.withOpacity(0.2),
-                        side: BorderSide(
-                            color: AppColors.primary.withOpacity(0.6)),
-                        onPressed: () {
-                          Navigator.pop(ctx);
-                          openPreview(port);
-                        },
-                      ))
-                  .toList(),
-            ),
-            const SizedBox(height: 16),
-            Row(
-              children: [
-                Expanded(
-                  child: TextField(
-                    controller: portCtrl,
-                    keyboardType: TextInputType.number,
-                    style: const TextStyle(
-                        color: Colors.white, fontFamily: 'monospace'),
-                    decoration: InputDecoration(
-                      hintText: AppLocalizations.of(context)!.portPickerCustom,
-                      hintStyle:
-                          TextStyle(color: Colors.white.withOpacity(0.4)),
-                      filled: true,
-                      fillColor: Colors.white.withOpacity(0.07),
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(8),
-                        borderSide: BorderSide.none,
-                      ),
-                      contentPadding: const EdgeInsets.symmetric(
-                          horizontal: 12, vertical: 12),
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 8),
-                ElevatedButton(
-                  onPressed: () {
-                    final port = int.tryParse(portCtrl.text.trim());
-                    if (port == null || port < 1 || port > 65535) return;
-                    Navigator.pop(ctx);
-                    openPreview(port);
-                  },
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: AppColors.primary,
-                    padding: const EdgeInsets.symmetric(
-                        horizontal: 16, vertical: 14),
-                  ),
-                  child: Text(AppLocalizations.of(context)!.open),
-                ),
-              ],
-            ),
-          ],
-        ),
+      builder: (ctx) => _CommandLauncherSheet(controller: controller),
+    );
+  }
+
+  // ── Webプレビュー ─────────────────────────────────────────
+
+  void _showPortPicker(BuildContext context, TerminalController controller) {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: AppColors.surface,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
       ),
+      builder: (ctx) => _PortPickerSheet(controller: controller),
     );
   }
 
@@ -873,22 +905,22 @@ class _TerminalScreenState extends State<TerminalScreen>
         barrierDismissible: false,
         builder: (ctx) => StatefulBuilder(
           builder: (ctx, setD) => AlertDialog(
-            backgroundColor: const Color(0xFF161B22),
+            backgroundColor: AppColors.surface,
             title: Text(AppLocalizations.of(context)!.tuiUploading,
-                style: const TextStyle(color: Colors.white)),
+                style: const TextStyle(color: AppColors.textPrimary)),
             content: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
                 LinearProgressIndicator(
                   value: progress,
-                  backgroundColor: Colors.white12,
+                  backgroundColor: AppColors.surfaceHighlight,
                   valueColor:
                       const AlwaysStoppedAnimation(AppColors.primary),
                 ),
                 const SizedBox(height: 8),
                 Text('${(progress * 100).toInt()}%',
                     style: const TextStyle(
-                        color: Colors.white60, fontSize: 12)),
+                        color: AppColors.textSecondary, fontSize: 12)),
               ],
             ),
           ),
@@ -977,12 +1009,12 @@ class _CopyButton extends StatelessWidget {
 
 // ── TikTokスタイル アクションボタン ───────────────────────────
 
-class _TikTokActionButton extends StatelessWidget {
+class _TikTokActionButton extends StatefulWidget {
   const _TikTokActionButton({
     required this.icon,
     required this.label,
     required this.onTap,
-    this.color = Colors.white,
+    this.color = AppColors.primary,
   });
 
   final IconData icon;
@@ -991,175 +1023,87 @@ class _TikTokActionButton extends StatelessWidget {
   final Color color;
 
   @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        width: 52,
-        margin: const EdgeInsets.only(bottom: 16),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Container(
-              width: 44,
-              height: 44,
-              decoration: BoxDecoration(
-                color: Colors.white.withOpacity(0.12),
-                shape: BoxShape.circle,
-              ),
-              child: Icon(icon, color: color, size: 22),
-            ),
-            const SizedBox(height: 4),
-            Text(
-              label,
-              style: TextStyle(
-                color: color.withOpacity(0.85),
-                fontSize: 10,
-                fontWeight: FontWeight.w500,
-              ),
-              textAlign: TextAlign.center,
-              maxLines: 1,
-            ),
-          ],
-        ),
-      ),
-    );
-  }
+  State<_TikTokActionButton> createState() => _TikTokActionButtonState();
 }
 
-// ── フォントサイズボタン（TikTokスタイル）──────────────────────
-
-class _TikTokFontSizeButton extends StatelessWidget {
-  const _TikTokFontSizeButton({
-    required this.fontSize,
-    required this.onChanged,
-  });
-
-  final double fontSize;
-  final ValueChanged<double> onChanged;
+class _TikTokActionButtonState extends State<_TikTokActionButton> {
+  bool _pressed = false;
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      width: 52,
-      margin: const EdgeInsets.only(bottom: 8),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          GestureDetector(
-            onTap: () => _showSizeSheet(context),
-            child: Container(
-              width: 44,
-              height: 44,
-              decoration: BoxDecoration(
-                color: Colors.white.withOpacity(0.12),
-                shape: BoxShape.circle,
-              ),
-              child: Center(
-                child: Text(
-                  '${fontSize.toInt()}',
-                  style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 14,
-                      fontWeight: FontWeight.w700),
+    return GestureDetector(
+      onTapDown: (_) => setState(() => _pressed = true),
+      onTapUp: (_) {
+        setState(() => _pressed = false);
+        HapticFeedback.lightImpact();
+        widget.onTap();
+      },
+      onTapCancel: () => setState(() => _pressed = false),
+      child: AnimatedScale(
+        scale: _pressed ? 0.82 : 1.0,
+        duration: const Duration(milliseconds: 60),
+        child: Container(
+          width: 52,
+          margin: const EdgeInsets.only(bottom: 16),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 44,
+                height: 44,
+                decoration: BoxDecoration(
+                  color: widget.color.withOpacity(0.08),
+                  shape: BoxShape.circle,
+                  border: Border.all(
+                      color: widget.color.withOpacity(0.20), width: 1),
                 ),
+                child: Icon(widget.icon, color: widget.color, size: 22),
               ),
-            ),
+              const SizedBox(height: 4),
+              Text(
+                widget.label,
+                style: TextStyle(
+                  color: widget.color.withOpacity(0.80),
+                  fontSize: 10,
+                  fontWeight: FontWeight.w600,
+                ),
+                textAlign: TextAlign.center,
+                maxLines: 1,
+              ),
+            ],
           ),
-          const SizedBox(height: 4),
-          Text(
-            AppLocalizations.of(context)!.fontSizeLabel,
-            style: const TextStyle(color: Colors.white70, fontSize: 10),
-            textAlign: TextAlign.center,
-          ),
-        ],
-      ),
-    );
-  }
-
-  void _showSizeSheet(BuildContext context) {
-    showModalBottomSheet(
-      context: context,
-      backgroundColor: const Color(0xFF161B22),
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
-      ),
-      builder: (ctx) => Padding(
-        padding: const EdgeInsets.all(20),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(AppLocalizations.of(context)!.fontSizeLabel,
-                style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 16,
-                    fontWeight: FontWeight.w700)),
-            const SizedBox(height: 16),
-            Wrap(
-              spacing: 8,
-              runSpacing: 8,
-              children: [10, 11, 12, 13, 14, 16, 18, 20]
-                  .map((size) => GestureDetector(
-                        onTap: () {
-                          onChanged(size.toDouble());
-                          Navigator.pop(ctx);
-                        },
-                        child: Container(
-                          width: 52,
-                          height: 44,
-                          decoration: BoxDecoration(
-                            color: fontSize == size
-                                ? AppColors.primary
-                                : Colors.white.withOpacity(0.1),
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                          alignment: Alignment.center,
-                          child: Text(
-                            '${size}px',
-                            style: const TextStyle(
-                                color: Colors.white,
-                                fontFamily: 'monospace',
-                                fontSize: 13),
-                          ),
-                        ),
-                      ))
-                  .toList(),
-            ),
-            const SizedBox(height: 16),
-          ],
         ),
       ),
     );
   }
 }
 
-// ── ターミナルテーマ (Light Red-White) ────────────────────────
+// ── ターミナルテーマ (Dark Red-White) ─────────────────────────
 
 const _terminalTheme = TerminalTheme(
-  cursor: AppColors.terminalCursor,
-  selection: AppColors.terminalSelection,
-  foreground: Color(0xFF24292E),
-  background: AppColors.terminalBackground,
-  black: Color(0xFF24292E),
-  red: Color(0xFFCF222E),
-  green: Color(0xFF116329),
-  yellow: Color(0xFF953800),
-  blue: Color(0xFF0550AE),
-  magenta: Color(0xFF6639BA),
-  cyan: Color(0xFF1B7C83),
-  white: Color(0xFF6E7781),
-  brightBlack: Color(0xFF57606A),
-  brightRed: Color(0xFFA40E26),
-  brightGreen: Color(0xFF1A7F37),
-  brightYellow: Color(0xFFCA8A04),
-  brightBlue: Color(0xFF218BFF),
-  brightMagenta: Color(0xFF8250DF),
-  brightCyan: Color(0xFF3192AA),
-  brightWhite: Color(0xFF24292E),
-  searchHitBackground: Color(0x55DC2626),
+  cursor:     AppColors.terminalCursor,      // #DC2626 赤
+  selection:  AppColors.terminalSelection,   // #40DC2626 半透明赤
+  foreground: AppColors.terminalForeground,  // #FFFFFF 白
+  background: AppColors.terminalBackground,  // #000000 黒
+  black:       Color(0xFF1E1E2E),
+  red:         Color(0xFFDC2626), // ブランドレッド
+  green:       Color(0xFF50FA7B),
+  yellow:      Color(0xFFF1FA8C),
+  blue:        Color(0xFF6272A4),
+  magenta:     Color(0xFFFF79C6),
+  cyan:        Color(0xFF8BE9FD),
+  white:       Color(0xFFBFBFBF),
+  brightBlack:   Color(0xFF6272A4),
+  brightRed:     Color(0xFFEF4444), // primaryLight
+  brightGreen:   Color(0xFF69FF94),
+  brightYellow:  Color(0xFFFFFFA5),
+  brightBlue:    Color(0xFFD6ACFF),
+  brightMagenta: Color(0xFFFF92DF),
+  brightCyan:    Color(0xFFA4FFFF),
+  brightWhite:   Color(0xFFFFFFFF),
+  searchHitBackground:        Color(0x55DC2626),
   searchHitBackgroundCurrent: Color(0xFFDC2626),
-  searchHitForeground: Color(0xFFFFFFFF),
+  searchHitForeground:        Color(0xFFFFFFFF),
 );
 
 // ── 接続状態インジケーター ────────────────────────────────────
@@ -1172,7 +1116,7 @@ class _ConnectionIndicator extends StatelessWidget {
         SshConnectionState.connected => AppColors.success,
         SshConnectionState.connecting => AppColors.warning,
         SshConnectionState.error => AppColors.error,
-        SshConnectionState.disconnected => Colors.white38,
+        SshConnectionState.disconnected => AppColors.textMuted,
       };
 
   String get _label => switch (state) {
@@ -1333,6 +1277,1151 @@ class _FloatingCmdBubbleState extends State<_FloatingCmdBubble> {
                 ),
               ),
             ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+// ── ポートピッカーシート ──────────────────────────────────────
+
+class _PortPickerSheet extends StatefulWidget {
+  const _PortPickerSheet({required this.controller});
+  final TerminalController controller;
+
+  @override
+  State<_PortPickerSheet> createState() => _PortPickerSheetState();
+}
+
+class _PortPickerSheetState extends State<_PortPickerSheet> {
+  static const _commonPorts = [3000, 4200, 5000, 5173, 8000, 8080];
+
+  final _portCtrl = TextEditingController();
+  List<int>? _detectedPorts;
+  bool _detecting = false;
+
+  @override
+  void dispose() {
+    _portCtrl.dispose();
+    super.dispose();
+  }
+
+  Future<void> _detect() async {
+    setState(() {
+      _detecting = true;
+      _detectedPorts = null;
+    });
+    final ports = await widget.controller.detectRunningPorts();
+    if (mounted) {
+      setState(() {
+        _detecting = false;
+        _detectedPorts = ports;
+      });
+    }
+  }
+
+  void _openPort(int port) {
+    final webHost = widget.controller.webHost;
+    if (webHost != null) {
+      // Cloud Shell: open via webHost proxy URL
+      Navigator.pop(context);
+      launchUrl(
+        Uri.parse('https://$port-$webHost'),
+        mode: LaunchMode.inAppBrowserView,
+      );
+      return;
+    }
+
+    // Custom SSH: start tunnel then open WebView
+    final tunnelService = widget.controller.tunnels;
+    if (tunnelService == null) return;
+    // Capture navigator before closing the sheet
+    final nav = Navigator.of(context);
+    Navigator.pop(context);
+
+    tunnelService.startTunnel(port).then((_) {
+      final url = tunnelService.getPreviewUrl(port);
+      if (url != null) {
+        nav.push(MaterialPageRoute(
+          builder: (_) => WebPreviewScreen(url: url),
+        ));
+      }
+    }).catchError((_) {});
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context)!;
+    final tunnelService = widget.controller.tunnels;
+    final isCloudShell = widget.controller.webHost != null;
+
+    return Padding(
+      padding: EdgeInsets.fromLTRB(
+          20, 20, 20, 20 + MediaQuery.of(context).viewInsets.bottom),
+      child: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // ── タイトル ──
+            Text(l.portPickerTitle,
+                style: const TextStyle(
+                    color: AppColors.textPrimary,
+                    fontSize: 16,
+                    fontWeight: FontWeight.w700)),
+            const SizedBox(height: 4),
+            Text(l.portPickerBody,
+                style: const TextStyle(
+                    color: AppColors.textSecondary, fontSize: 12)),
+            const SizedBox(height: 16),
+
+            // ── Section A: アクティブなトンネル（SSH専用） ──
+            if (!isCloudShell && tunnelService != null)
+              _ActiveTunnelsSection(
+                tunnelService: tunnelService,
+                onOpen: (port) => _openPort(port),
+              ),
+
+            // ── Section B: クイックポートチップ ──
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: [
+                ..._commonPorts.map((port) => _PortChip(
+                      port: port,
+                      status: tunnelService?.statusOf(port) ?? TunnelStatus.idle,
+                      isCloudShell: isCloudShell,
+                      onTap: () => _openPort(port),
+                    )),
+                // 検出ボタン
+                ActionChip(
+                  avatar: _detecting
+                      ? const SizedBox(
+                          width: 14,
+                          height: 14,
+                          child: CircularProgressIndicator(
+                              strokeWidth: 1.5,
+                              color: AppColors.primary))
+                      : const Icon(Icons.search_rounded,
+                          size: 14, color: AppColors.primary),
+                  label: Text(
+                    _detecting ? l.portDetecting : l.portDetect,
+                    style: const TextStyle(
+                        color: AppColors.textSecondary, fontSize: 12),
+                  ),
+                  backgroundColor: AppColors.surfaceVariant,
+                  side: BorderSide(
+                      color: AppColors.primary.withOpacity(0.25)),
+                  onPressed: _detecting ? null : _detect,
+                ),
+              ],
+            ),
+
+            // ── 検出されたポート ──
+            if (_detectedPorts != null) ...[
+              const SizedBox(height: 12),
+              if (_detectedPorts!.isEmpty)
+                Text(AppLocalizations.of(context)!.portDetectedNone,
+                    style: const TextStyle(
+                        color: AppColors.textMuted, fontSize: 12))
+              else
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: _detectedPorts!
+                      .where((p) => !_commonPorts.contains(p))
+                      .map((port) => _PortChip(
+                            port: port,
+                            status: tunnelService?.statusOf(port) ??
+                                TunnelStatus.idle,
+                            isCloudShell: isCloudShell,
+                            onTap: () => _openPort(port),
+                          ))
+                      .toList(),
+                ),
+            ],
+
+            const SizedBox(height: 16),
+
+            // ── Section C: 保存済み設定（SSH専用） ──
+            if (!isCloudShell && tunnelService != null)
+              _SavedPortsSection(
+                tunnelService: tunnelService,
+                onOpen: (port) => _openPort(port),
+              ),
+
+            // ── カスタムポート入力 ──
+            Row(
+              children: [
+                Expanded(
+                  child: TextField(
+                    controller: _portCtrl,
+                    keyboardType: TextInputType.number,
+                    style: const TextStyle(
+                        color: AppColors.textPrimary,
+                        fontFamily: 'monospace'),
+                    decoration: InputDecoration(
+                      hintText: l.portPickerCustom,
+                      hintStyle: const TextStyle(
+                          color: AppColors.textMuted),
+                      filled: true,
+                      fillColor: AppColors.surfaceVariant,
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(8),
+                        borderSide: BorderSide.none,
+                      ),
+                      contentPadding: const EdgeInsets.symmetric(
+                          horizontal: 12, vertical: 12),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                ElevatedButton(
+                  onPressed: () {
+                    final port = int.tryParse(_portCtrl.text.trim());
+                    if (port == null || port < 1 || port > 65535) return;
+                    _openPort(port);
+                  },
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppColors.primary,
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 16, vertical: 14),
+                  ),
+                  child: Text(l.open),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// ── ポートチップ ────────────────────────────────────────────
+
+class _PortChip extends StatelessWidget {
+  const _PortChip({
+    required this.port,
+    required this.status,
+    required this.isCloudShell,
+    required this.onTap,
+  });
+
+  final int port;
+  final TunnelStatus status;
+  final bool isCloudShell;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final isActive = status == TunnelStatus.active;
+    final color = isActive ? AppColors.success : AppColors.primary;
+    return ActionChip(
+      avatar: isActive && !isCloudShell
+          ? Icon(Icons.circle, size: 8, color: color)
+          : null,
+      label: Text('$port',
+          style: const TextStyle(
+              color: AppColors.textPrimary, fontFamily: 'monospace')),
+      backgroundColor: color.withOpacity(0.15),
+      side: BorderSide(color: color.withOpacity(0.5)),
+      onPressed: onTap,
+    );
+  }
+}
+
+// ── アクティブトンネルセクション ────────────────────────────
+
+class _ActiveTunnelsSection extends StatelessWidget {
+  const _ActiveTunnelsSection(
+      {required this.tunnelService, required this.onOpen});
+  final SshTunnelService tunnelService;
+  final void Function(int port) onOpen;
+
+  @override
+  Widget build(BuildContext context) {
+    return ListenableBuilder(
+      listenable: tunnelService,
+      builder: (context, _) {
+        final active = tunnelService.tunnelStatuses.entries
+            .where((e) => e.value == TunnelStatus.active)
+            .toList();
+        if (active.isEmpty) return const SizedBox.shrink();
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(AppLocalizations.of(context)!.tunnelActive,
+                style: const TextStyle(
+                    color: AppColors.textSecondary,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600)),
+            const SizedBox(height: 8),
+            ...active.map((e) => _TunnelRow(
+                  remotePort: e.key,
+                  localPort: tunnelService.localPortOf(e.key)!,
+                  onOpen: () => onOpen(e.key),
+                  onStop: () => tunnelService.stopTunnel(e.key),
+                )),
+            const SizedBox(height: 12),
+          ],
+        );
+      },
+    );
+  }
+}
+
+class _TunnelRow extends StatelessWidget {
+  const _TunnelRow({
+    required this.remotePort,
+    required this.localPort,
+    required this.onOpen,
+    required this.onStop,
+  });
+  final int remotePort;
+  final int localPort;
+  final VoidCallback onOpen;
+  final VoidCallback onStop;
+
+  @override
+  Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context)!;
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 6),
+      child: Row(
+        children: [
+          const Icon(Icons.circle, size: 8, color: AppColors.success),
+          const SizedBox(width: 8),
+          Text(':$remotePort → :$localPort',
+              style: const TextStyle(
+                  color: AppColors.textPrimary,
+                  fontFamily: 'monospace',
+                  fontSize: 13)),
+          const Spacer(),
+          TextButton(
+            onPressed: onStop,
+            style: TextButton.styleFrom(
+                foregroundColor: AppColors.textSecondary,
+                padding: const EdgeInsets.symmetric(horizontal: 8)),
+            child: Text(l.tunnelStop, style: const TextStyle(fontSize: 12)),
+          ),
+          ElevatedButton(
+            onPressed: onOpen,
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppColors.primary,
+              padding:
+                  const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              textStyle: const TextStyle(fontSize: 12),
+            ),
+            child: Text(l.open),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ── 保存済みポートセクション ────────────────────────────────
+
+class _SavedPortsSection extends StatefulWidget {
+  const _SavedPortsSection(
+      {required this.tunnelService, required this.onOpen});
+  final SshTunnelService tunnelService;
+  final void Function(int port) onOpen;
+
+  @override
+  State<_SavedPortsSection> createState() => _SavedPortsSectionState();
+}
+
+class _SavedPortsSectionState extends State<_SavedPortsSection> {
+  PortTunnelConfigService? _configService;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    try {
+      _configService = context.read<PortTunnelConfigService>();
+    } catch (_) {
+      // PortTunnelConfigService not in provider tree (e.g. demo mode)
+      return;
+    }
+    if (_configService!.connectionId == null &&
+        widget.tunnelService.connectionId.isNotEmpty) {
+      _configService!.load(widget.tunnelService.connectionId);
+    }
+  }
+
+  void _showAddDialog() {
+    final portCtrl = TextEditingController();
+    final labelCtrl = TextEditingController();
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: AppColors.surface,
+        title: Text(AppLocalizations.of(context)!.addPort,
+            style: const TextStyle(color: AppColors.textPrimary)),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextField(
+              controller: portCtrl,
+              keyboardType: TextInputType.number,
+              style: const TextStyle(color: AppColors.textPrimary),
+              decoration: InputDecoration(
+                labelText: AppLocalizations.of(context)!.portNumber,
+                labelStyle: const TextStyle(
+                    color: AppColors.textSecondary),
+              ),
+            ),
+            TextField(
+              controller: labelCtrl,
+              style: const TextStyle(color: AppColors.textPrimary),
+              decoration: InputDecoration(
+                labelText: AppLocalizations.of(context)!.portLabel,
+                labelStyle: const TextStyle(
+                    color: AppColors.textSecondary),
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: Text(AppLocalizations.of(context)!.cancel),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              final port = int.tryParse(portCtrl.text.trim());
+              if (port == null || port < 1 || port > 65535) return;
+              final label = labelCtrl.text.trim().isEmpty
+                  ? ':$port'
+                  : labelCtrl.text.trim();
+              final id = DateTime.now().millisecondsSinceEpoch.toString();
+              _configService?.add(PortTunnelConfig(
+                id: id,
+                connectionId: widget.tunnelService.connectionId,
+                remotePort: port,
+                localPort: PortTunnelConfig.defaultLocalPort(port),
+                label: label,
+                autoConnect: false,
+              ));
+              Navigator.pop(ctx);
+            },
+            style:
+                ElevatedButton.styleFrom(backgroundColor: AppColors.primary),
+            child: Text(AppLocalizations.of(context)!.addPort),
+          ),
+        ],
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final configService = _configService;
+    if (configService == null) return const SizedBox.shrink();
+    final l = AppLocalizations.of(context)!;
+    return ListenableBuilder(
+      listenable: configService,
+      builder: (context, _) {
+        final configs = configService.configs;
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Text(l.savedPorts,
+                    style: const TextStyle(
+                        color: AppColors.textSecondary,
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600)),
+                const Spacer(),
+                IconButton(
+                  icon: const Icon(Icons.add_rounded,
+                      size: 18, color: AppColors.primary),
+                  onPressed: _showAddDialog,
+                  padding: EdgeInsets.zero,
+                  constraints: const BoxConstraints(),
+                ),
+              ],
+            ),
+            const SizedBox(height: 4),
+            if (configs.isEmpty)
+              Padding(
+                padding: const EdgeInsets.only(bottom: 8),
+                child: Text(l.portDetectedNone,
+                    style: const TextStyle(
+                        color: AppColors.textMuted, fontSize: 12)),
+              )
+            else
+              ...configs.map((cfg) => _SavedPortRow(
+                    config: cfg,
+                    status: widget.tunnelService.statusOf(cfg.remotePort),
+                    onToggle: () {
+                      final s = widget.tunnelService.statusOf(cfg.remotePort);
+                      if (s == TunnelStatus.active) {
+                        widget.tunnelService.stopTunnel(cfg.remotePort);
+                      } else {
+                        widget.tunnelService
+                            .startTunnel(cfg.remotePort)
+                            .catchError((_) {});
+                      }
+                    },
+                    onOpen: () => widget.onOpen(cfg.remotePort),
+                    onDelete: () => configService.remove(cfg.id),
+                    onAutoConnectChanged: (v) =>
+                        configService.update(cfg.copyWith(autoConnect: v)),
+                  )),
+            const SizedBox(height: 12),
+          ],
+        );
+      },
+    );
+  }
+}
+
+class _SavedPortRow extends StatelessWidget {
+  const _SavedPortRow({
+    required this.config,
+    required this.status,
+    required this.onToggle,
+    required this.onOpen,
+    required this.onDelete,
+    required this.onAutoConnectChanged,
+  });
+
+  final PortTunnelConfig config;
+  final TunnelStatus status;
+  final VoidCallback onToggle;
+  final VoidCallback onOpen;
+  final VoidCallback onDelete;
+  final ValueChanged<bool> onAutoConnectChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    final isActive = status == TunnelStatus.active;
+    final l = AppLocalizations.of(context)!;
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 6),
+      child: Row(
+        children: [
+          Switch(
+            value: isActive,
+            onChanged: (_) => onToggle(),
+            activeColor: AppColors.success,
+            materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+          ),
+          const SizedBox(width: 6),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(config.label,
+                    style: const TextStyle(
+                        color: AppColors.textPrimary, fontSize: 13),
+                    overflow: TextOverflow.ellipsis),
+                Text(':${config.remotePort}',
+                    style: const TextStyle(
+                        color: AppColors.textMuted,
+                        fontSize: 11,
+                        fontFamily: 'monospace')),
+              ],
+            ),
+          ),
+          if (isActive)
+            TextButton(
+              onPressed: onOpen,
+              style: TextButton.styleFrom(
+                  foregroundColor: AppColors.primary,
+                  padding: const EdgeInsets.symmetric(horizontal: 8)),
+              child: Text(l.open, style: const TextStyle(fontSize: 12)),
+            ),
+          Checkbox(
+            value: config.autoConnect,
+            onChanged: (v) => onAutoConnectChanged(v ?? false),
+            activeColor: AppColors.primary,
+            materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+          ),
+          IconButton(
+            icon: const Icon(Icons.delete_outline_rounded,
+                size: 16, color: AppColors.error),
+            onPressed: onDelete,
+            padding: EdgeInsets.zero,
+            constraints: const BoxConstraints(),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ══════════════════════════════════════════════════════════════
+// コマンドランチャー
+// ══════════════════════════════════════════════════════════════
+
+class _CommandLauncherSheet extends StatefulWidget {
+  const _CommandLauncherSheet({required this.controller});
+  final TerminalController controller;
+
+  @override
+  State<_CommandLauncherSheet> createState() => _CommandLauncherSheetState();
+}
+
+class _CommandLauncherSheetState extends State<_CommandLauncherSheet> {
+  List<LauncherCategory> _categories = [];
+  int _selectedIndex = 0;
+
+  static const _presetIcons = ['📁', '🐙', '📦', '🐳', '⚡', '🔧', '🚀', '🌿'];
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  Future<void> _load() async {
+    final raw =
+        await SecureStorageService.instance.getCommandLauncher();
+    if (raw != null && raw.isNotEmpty) {
+      try {
+        final cats = LauncherCategory.decodeList(raw);
+        if (mounted) setState(() => _categories = cats);
+      } catch (_) {}
+    }
+  }
+
+  Future<void> _save() async {
+    await SecureStorageService.instance
+        .saveCommandLauncher(LauncherCategory.encodeList(_categories));
+  }
+
+  void _runCommand(String command) {
+    Navigator.pop(context);
+    widget.controller.terminal.onOutput?.call('$command\n');
+  }
+
+  void _showAddCategoryDialog() {
+    final labelCtrl = TextEditingController();
+    String selectedIcon = _presetIcons.first;
+
+    showDialog(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setD) => AlertDialog(
+          backgroundColor: AppColors.surface,
+          title: Text(AppLocalizations.of(context)!.launcherAddCategory,
+              style: const TextStyle(color: AppColors.textPrimary)),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextField(
+                controller: labelCtrl,
+                autofocus: true,
+                style: const TextStyle(color: AppColors.textPrimary),
+                decoration: InputDecoration(
+                  labelText:
+                      AppLocalizations.of(context)!.launcherCategoryLabel,
+                  labelStyle: const TextStyle(
+                      color: AppColors.textSecondary),
+                  enabledBorder: UnderlineInputBorder(
+                      borderSide: BorderSide(
+                          color: AppColors.surfaceHighlight)),
+                  focusedBorder: UnderlineInputBorder(
+                      borderSide:
+                          BorderSide(color: AppColors.primary)),
+                ),
+              ),
+              const SizedBox(height: 16),
+              Text(AppLocalizations.of(context)!.launcherIcon,
+                  style: const TextStyle(
+                      color: AppColors.textSecondary, fontSize: 12)),
+              const SizedBox(height: 8),
+              Wrap(
+                spacing: 8,
+                children: _presetIcons
+                    .map((emoji) => GestureDetector(
+                          onTap: () => setD(() => selectedIcon = emoji),
+                          child: Container(
+                            width: 36,
+                            height: 36,
+                            decoration: BoxDecoration(
+                              color: selectedIcon == emoji
+                                  ? AppColors.primary.withOpacity(0.12)
+                                  : AppColors.surfaceVariant,
+                              borderRadius: BorderRadius.circular(8),
+                              border: selectedIcon == emoji
+                                  ? Border.all(
+                                      color: AppColors.primary, width: 1.5)
+                                  : null,
+                            ),
+                            alignment: Alignment.center,
+                            child: Text(emoji,
+                                style: const TextStyle(fontSize: 18)),
+                          ),
+                        ))
+                    .toList(),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: Text(AppLocalizations.of(context)!.cancel),
+            ),
+            ElevatedButton(
+              onPressed: () {
+                final label = labelCtrl.text.trim();
+                if (label.isEmpty) return;
+                final id =
+                    DateTime.now().millisecondsSinceEpoch.toString();
+                setState(() {
+                  _categories = [
+                    ..._categories,
+                    LauncherCategory(
+                        id: id,
+                        label: label,
+                        icon: selectedIcon,
+                        commands: []),
+                  ];
+                  _selectedIndex = _categories.length - 1;
+                });
+                _save();
+                Navigator.pop(ctx);
+              },
+              style: ElevatedButton.styleFrom(
+                  backgroundColor: AppColors.primary),
+              child: Text(AppLocalizations.of(context)!.launcherAddCategory),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _showAddCommandDialog() {
+    if (_categories.isEmpty) return;
+    final labelCtrl = TextEditingController();
+    final commandCtrl = TextEditingController();
+
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: AppColors.surface,
+        title: Text(AppLocalizations.of(context)!.launcherAddCommand,
+            style: const TextStyle(color: AppColors.textPrimary)),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextField(
+              controller: labelCtrl,
+              autofocus: true,
+              style: const TextStyle(color: AppColors.textPrimary),
+              decoration: InputDecoration(
+                labelText: AppLocalizations.of(context)!.launcherCommandLabel,
+                labelStyle: const TextStyle(
+                    color: AppColors.textSecondary),
+                enabledBorder: UnderlineInputBorder(
+                    borderSide:
+                        BorderSide(color: AppColors.surfaceHighlight)),
+                focusedBorder: UnderlineInputBorder(
+                    borderSide: BorderSide(color: AppColors.primary)),
+              ),
+            ),
+            const SizedBox(height: 8),
+            TextField(
+              controller: commandCtrl,
+              style: const TextStyle(
+                  color: AppColors.textPrimary, fontFamily: 'monospace'),
+              decoration: InputDecoration(
+                labelText: AppLocalizations.of(context)!.launcherCommandHint,
+                labelStyle: const TextStyle(
+                    color: AppColors.textSecondary),
+                enabledBorder: UnderlineInputBorder(
+                    borderSide:
+                        BorderSide(color: AppColors.surfaceHighlight)),
+                focusedBorder: UnderlineInputBorder(
+                    borderSide: BorderSide(color: AppColors.primary)),
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: Text(AppLocalizations.of(context)!.cancel),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              final label = labelCtrl.text.trim();
+              final command = commandCtrl.text.trim();
+              if (label.isEmpty || command.isEmpty) return;
+              final id =
+                  DateTime.now().millisecondsSinceEpoch.toString();
+              final cat = _categories[_selectedIndex];
+              final updated = cat.copyWith(commands: [
+                ...cat.commands,
+                LauncherCommand(id: id, label: label, command: command),
+              ]);
+              setState(() {
+                _categories = [
+                  ..._categories.sublist(0, _selectedIndex),
+                  updated,
+                  ..._categories.sublist(_selectedIndex + 1),
+                ];
+              });
+              _save();
+              Navigator.pop(ctx);
+            },
+            style: ElevatedButton.styleFrom(
+                backgroundColor: AppColors.primary),
+            child: Text(AppLocalizations.of(context)!.launcherAddCommand),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _deleteCategory(int index) {
+    setState(() {
+      _categories = [
+        ..._categories.sublist(0, index),
+        ..._categories.sublist(index + 1),
+      ];
+      if (_selectedIndex >= _categories.length) {
+        _selectedIndex = (_categories.length - 1).clamp(0, 9999);
+      }
+    });
+    _save();
+  }
+
+  void _deleteCommand(int catIndex, int cmdIndex) {
+    final cat = _categories[catIndex];
+    final updatedCmds = [...cat.commands]..removeAt(cmdIndex);
+    setState(() {
+      _categories = [
+        ..._categories.sublist(0, catIndex),
+        cat.copyWith(commands: updatedCmds),
+        ..._categories.sublist(catIndex + 1),
+      ];
+    });
+    _save();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context)!;
+    final maxH = MediaQuery.of(context).size.height * 0.72;
+
+    return ConstrainedBox(
+      constraints: BoxConstraints(
+          maxHeight: maxH + MediaQuery.of(context).viewInsets.bottom),
+      child: Padding(
+        padding: EdgeInsets.fromLTRB(
+            16, 16, 16, 16 + MediaQuery.of(context).viewInsets.bottom),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // ── ヘッダー ──
+            Row(
+              children: [
+                const Icon(Icons.grid_view_rounded,
+                    color: AppColors.primary, size: 18),
+                const SizedBox(width: 8),
+                Text(l.launcherTitle,
+                    style: const TextStyle(
+                        color: AppColors.textPrimary,
+                        fontSize: 16,
+                        fontWeight: FontWeight.w700)),
+                const Spacer(),
+                TextButton.icon(
+                  onPressed: _showAddCategoryDialog,
+                  icon: const Icon(Icons.add_rounded,
+                      size: 16, color: AppColors.primary),
+                  label: Text(l.launcherAddCategory,
+                      style: const TextStyle(
+                          color: AppColors.primary, fontSize: 12)),
+                  style: TextButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(horizontal: 8)),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+
+            // ── カテゴリタブ ──
+            if (_categories.isEmpty)
+              Padding(
+                padding: const EdgeInsets.symmetric(vertical: 24),
+                child: Center(
+                  child: Column(
+                    children: [
+                      Icon(Icons.grid_view_outlined,
+                          color: AppColors.primary.withOpacity(0.3),
+                          size: 40),
+                      const SizedBox(height: 8),
+                      Text(l.launcherEmptyCategories,
+                          style: const TextStyle(
+                              color: AppColors.textMuted, fontSize: 13)),
+                      const SizedBox(height: 16),
+                      ElevatedButton.icon(
+                        onPressed: _showAddCategoryDialog,
+                        icon: const Icon(Icons.add_rounded, size: 16),
+                        label: Text(l.launcherAddCategory),
+                        style: ElevatedButton.styleFrom(
+                            backgroundColor: AppColors.primary),
+                      ),
+                    ],
+                  ),
+                ),
+              )
+            else ...[
+              // カテゴリチップ横スクロール
+              SizedBox(
+                height: 36,
+                child: ListView.separated(
+                  scrollDirection: Axis.horizontal,
+                  itemCount: _categories.length,
+                  separatorBuilder: (_, __) => const SizedBox(width: 8),
+                  itemBuilder: (ctx, i) {
+                    final cat = _categories[i];
+                    final isSelected = i == _selectedIndex;
+                    return GestureDetector(
+                      onTap: () => setState(() => _selectedIndex = i),
+                      onLongPress: () => _confirmDeleteCategory(i),
+                      child: AnimatedContainer(
+                        duration: const Duration(milliseconds: 150),
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 12, vertical: 6),
+                        decoration: BoxDecoration(
+                          color: isSelected
+                              ? AppColors.primary.withOpacity(0.12)
+                              : AppColors.surfaceVariant,
+                          borderRadius: BorderRadius.circular(20),
+                          border: Border.all(
+                            color: isSelected
+                                ? AppColors.primary.withOpacity(0.5)
+                                : AppColors.surfaceHighlight,
+                          ),
+                        ),
+                        child: Text(
+                          '${cat.icon} ${cat.label}',
+                          style: TextStyle(
+                            color: isSelected
+                                ? AppColors.primary
+                                : AppColors.textSecondary,
+                            fontSize: 13,
+                            fontWeight: isSelected
+                                ? FontWeight.w600
+                                : FontWeight.normal,
+                          ),
+                        ),
+                      ),
+                    );
+                  },
+                ),
+              ),
+              const SizedBox(height: 12),
+
+              // ── コマンド一覧 ──
+              Flexible(
+                child: Builder(builder: (ctx) {
+                  final cat = _categories[_selectedIndex];
+                  if (cat.commands.isEmpty) {
+                    return Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 16),
+                      child: Center(
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Text(l.launcherEmptyCommands,
+                                style: const TextStyle(
+                                    color: AppColors.textMuted,
+                                    fontSize: 13)),
+                            const SizedBox(height: 12),
+                            ElevatedButton.icon(
+                              onPressed: _showAddCommandDialog,
+                              icon: const Icon(Icons.add_rounded, size: 16),
+                              label: Text(l.launcherAddCommand),
+                              style: ElevatedButton.styleFrom(
+                                  backgroundColor: AppColors.primary),
+                            ),
+                          ],
+                        ),
+                      ),
+                    );
+                  }
+                  return ListView.builder(
+                    shrinkWrap: true,
+                    itemCount: cat.commands.length + 1,
+                    itemBuilder: (ctx, i) {
+                      if (i == cat.commands.length) {
+                        // 追加ボタン
+                        return Padding(
+                          padding: const EdgeInsets.only(top: 4, bottom: 4),
+                          child: TextButton.icon(
+                            onPressed: _showAddCommandDialog,
+                            icon: const Icon(Icons.add_rounded,
+                                size: 15, color: AppColors.primary),
+                            label: Text(l.launcherAddCommand,
+                                style: const TextStyle(
+                                    color: AppColors.primary,
+                                    fontSize: 12)),
+                            style: TextButton.styleFrom(
+                                padding:
+                                    const EdgeInsets.symmetric(horizontal: 4)),
+                          ),
+                        );
+                      }
+                      final cmd = cat.commands[i];
+                      return _CommandRow(
+                        command: cmd,
+                        onRun: () => _runCommand(cmd.command),
+                        onDelete: () =>
+                            _deleteCommand(_selectedIndex, i),
+                      );
+                    },
+                  );
+                }),
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _confirmDeleteCategory(int index) {
+    final cat = _categories[index];
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: AppColors.surface,
+        title: Text(AppLocalizations.of(context)!.launcherDeleteCategory,
+            style: const TextStyle(color: AppColors.textPrimary)),
+        content: Text('「${cat.icon} ${cat.label}」を削除しますか？',
+            style: const TextStyle(color: AppColors.textSecondary)),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: Text(AppLocalizations.of(context)!.cancel),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              Navigator.pop(ctx);
+              _deleteCategory(index);
+            },
+            style: ElevatedButton.styleFrom(
+                backgroundColor: AppColors.error),
+            child: Text(AppLocalizations.of(context)!.delete),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _CommandRow extends StatefulWidget {
+  const _CommandRow({
+    required this.command,
+    required this.onRun,
+    required this.onDelete,
+  });
+
+  final LauncherCommand command;
+  final VoidCallback onRun;
+  final VoidCallback onDelete;
+
+  @override
+  State<_CommandRow> createState() => _CommandRowState();
+}
+
+class _CommandRowState extends State<_CommandRow> {
+  bool _expanded = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context)!;
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 4),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: widget.onRun,
+          onLongPress: () => setState(() => _expanded = !_expanded),
+          borderRadius: BorderRadius.circular(8),
+          child: Container(
+            padding:
+                const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+            decoration: BoxDecoration(
+              color: AppColors.surfaceVariant,
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(color: AppColors.surfaceHighlight),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    const Icon(Icons.terminal_rounded,
+                        size: 14, color: AppColors.primary),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text(widget.command.label,
+                              style: const TextStyle(
+                                  color: AppColors.textPrimary,
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.w500)),
+                          Text(widget.command.command,
+                              style: const TextStyle(
+                                  color: AppColors.textMuted,
+                                  fontSize: 11,
+                                  fontFamily: 'monospace'),
+                              overflow: TextOverflow.ellipsis),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    ElevatedButton(
+                      onPressed: widget.onRun,
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: AppColors.primary,
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 12, vertical: 6),
+                        minimumSize: Size.zero,
+                        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                        textStyle: const TextStyle(fontSize: 12),
+                      ),
+                      child: Text(l.launcherRun),
+                    ),
+                  ],
+                ),
+                if (_expanded) ...[
+                  const SizedBox(height: 6),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.end,
+                    children: [
+                      TextButton.icon(
+                        onPressed: widget.onDelete,
+                        icon: const Icon(Icons.delete_outline_rounded,
+                            size: 14, color: Colors.redAccent),
+                        label: Text(l.delete,
+                            style: const TextStyle(
+                                color: Colors.redAccent, fontSize: 12)),
+                        style: TextButton.styleFrom(
+                            padding:
+                                const EdgeInsets.symmetric(horizontal: 8)),
+                      ),
+                    ],
+                  ),
+                ],
+              ],
+            ),
           ),
         ),
       ),

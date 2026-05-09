@@ -132,6 +132,19 @@ class AppLocalizationsJa extends AppLocalizations {
   String get cloudShellFirstLaunchNote => '初回は30秒ほどかかることがあります';
 
   @override
+  String get startupStepPreparingKey => 'SSH 鍵を準備中';
+  @override
+  String get startupStepCheckingState => '環境の状態を確認中';
+  @override
+  String get startupStepStarting => '環境を起動中';
+  @override
+  String get startupStepWaitingRunning => '起動完了を待機中';
+  @override
+  String get startupStepRegisteringKey => 'SSH 鍵を登録中';
+  @override
+  String startupElapsed(int seconds) => '${seconds}秒経過';
+
+  @override
   String get cloudShellRunning => 'Cloud Shell 起動中';
 
   @override
@@ -565,4 +578,181 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get version => 'バージョン';
+
+  @override
+  String get tunnelActive => 'アクティブ';
+
+  @override
+  String get tunnelStop => '停止';
+
+  @override
+  String get portDetect => '検出';
+
+  @override
+  String get portDetecting => 'スキャン中...';
+
+  @override
+  String get portDetectedNone => 'ポートが見つかりません';
+
+  @override
+  String get savedPorts => '保存済みポート';
+
+  @override
+  String get addPort => 'ポートを追加';
+
+  @override
+  String get portLabel => 'ラベル';
+
+  @override
+  String get portNumber => 'ポート番号';
+
+  @override
+  String get launcherTitle => 'ランチャー';
+
+  @override
+  String get launcherAddCategory => 'カテゴリを追加';
+
+  @override
+  String get launcherAddCommand => 'コマンドを追加';
+
+  @override
+  String get launcherCategoryLabel => 'カテゴリ名';
+
+  @override
+  String get launcherIcon => 'アイコン（絵文字）';
+
+  @override
+  String get launcherCommandLabel => 'ラベル';
+
+  @override
+  String get launcherCommandHint => 'コマンド';
+
+  @override
+  String get launcherEmptyCategories => 'カテゴリがありません。＋をタップして追加してください。';
+
+  @override
+  String get launcherEmptyCommands => 'コマンドがありません。';
+
+  @override
+  String get launcherRun => '実行';
+
+  @override
+  String get launcherDeleteCategory => 'カテゴリを削除';
+
+  @override
+  String get cicdTitle => 'CI/CD';
+
+  @override
+  String get cicdNoRuns => 'ワークフローの実行履歴がありません';
+
+  @override
+  String get cicdNoJobs => 'ジョブが見つかりません';
+
+  @override
+  String get cicdRunning => '実行中';
+
+  @override
+  String get branchesTitle => 'ブランチ';
+
+  @override
+  String get pullRequestsTitle => 'プルリクエスト';
+
+  @override
+  String get branchNew => '新しいブランチ';
+
+  @override
+  String get branchName => 'ブランチ名';
+
+  @override
+  String get branchFrom => '元のブランチ';
+
+  @override
+  String get branchDelete => 'ブランチを削除';
+
+  @override
+  String get branchDeleteConfirm => 'このブランチを削除しますか？';
+
+  @override
+  String get branchProtected => '保護済み';
+
+  @override
+  String get branchesEmpty => 'ブランチがありません';
+
+  @override
+  String get prNew => '新しいプルリクエスト';
+
+  @override
+  String get prTitleLabel => 'タイトル';
+
+  @override
+  String get prBodyLabel => '説明（任意）';
+
+  @override
+  String get prCreate => '作成';
+
+  @override
+  String get prHead => 'ヘッドブランチ';
+
+  @override
+  String get prBase => 'ベースブランチ';
+
+  @override
+  String get prStateOpen => 'オープン';
+
+  @override
+  String get prStateClosed => 'クローズ';
+
+  @override
+  String get prEmpty => 'プルリクエストがありません';
+
+  @override
+  String get apiTestTitle => 'APIテスト';
+
+  @override
+  String get apiTestSend => '送信';
+
+  @override
+  String get apiTestResponse => 'レスポンス';
+
+  @override
+  String get apiTestBody => 'ボディ';
+
+  @override
+  String get apiTestHeaders => 'ヘッダー';
+
+  @override
+  String get apiTestAddHeader => 'ヘッダーを追加';
+
+  @override
+  String get apiTestInsertApiKey => 'APIキーを挿入';
+
+  @override
+  String get apiTestNoApiKeys => 'APIキーが保存されていません';
+
+  @override
+  String get additionalFeaturesSection => '追加機能';
+
+  @override
+  String get featureSshTab => 'SSHサーバータブ';
+
+  @override
+  String get featureSshTabSubtitle => 'カスタムSSHサーバーに接続';
+
+  @override
+  String get featureApiKeys => 'APIキー & テスト';
+
+  @override
+  String get featureApiKeysSubtitle => 'キー管理とREST APIテスト';
+
+  @override
+  String get featureCicd => 'CI/CD';
+
+  @override
+  String get featureCicdSubtitle => 'GitHub Actionsのワークフロー表示';
+
+  @override
+  String get featurePlugins => 'プラグイン';
+
+  @override
+  String get featurePluginsSubtitle => 'コミュニティプラグインで機能を拡張';
 }

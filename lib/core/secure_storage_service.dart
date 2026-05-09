@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'constants.dart';
 
@@ -13,13 +15,25 @@ class SecureStorageService {
     ),
   );
 
+  // in-memory キャッシュ（起動後の再読み出しを高速化）
+  String? _cachedToken;
+  String? _cachedPrivateKey;
+  String? _cachedPublicKey;
+
+  void clearCache() {
+    _cachedToken = null;
+    _cachedPrivateKey = null;
+    _cachedPublicKey = null;
+  }
+
   // ── Google アクセストークン ──────────────────────────
   Future<void> saveAccessToken(String token) async {
+    _cachedToken = token;
     await _storage.write(key: AppConstants.storageKeyAccessToken, value: token);
   }
 
   Future<String?> getAccessToken() async {
-    return _storage.read(key: AppConstants.storageKeyAccessToken);
+    return _cachedToken ??= await _storage.read(key: AppConstants.storageKeyAccessToken);
   }
 
   // ── Google リフレッシュトークン ──────────────────────
@@ -33,16 +47,18 @@ class SecureStorageService {
 
   // ── SSH 鍵ペア ────────────────────────────────────────
   Future<void> saveSshKeyPair(String privateKey, String publicKey) async {
+    _cachedPrivateKey = privateKey;
+    _cachedPublicKey = publicKey;
     await _storage.write(key: AppConstants.storageKeySshPrivateKey, value: privateKey);
     await _storage.write(key: AppConstants.storageKeySshPublicKey, value: publicKey);
   }
 
   Future<String?> getSshPrivateKey() async {
-    return _storage.read(key: AppConstants.storageKeySshPrivateKey);
+    return _cachedPrivateKey ??= await _storage.read(key: AppConstants.storageKeySshPrivateKey);
   }
 
   Future<String?> getSshPublicKey() async {
-    return _storage.read(key: AppConstants.storageKeySshPublicKey);
+    return _cachedPublicKey ??= await _storage.read(key: AppConstants.storageKeySshPublicKey);
   }
 
   Future<bool> hasSshKeyPair() async {
@@ -106,6 +122,14 @@ class SecureStorageService {
     await _storage.write(key: 'theme_mode', value: mode);
   }
 
+  Future<String?> getTerminalFontSize() async {
+    return _storage.read(key: 'terminal_font_size_v1');
+  }
+
+  Future<void> saveTerminalFontSize(String value) async {
+    await _storage.write(key: 'terminal_font_size_v1', value: value);
+  }
+
   // ── APIキー ──────────────────────────────────────────────
   Future<String?> getApiKeys() async {
     return _storage.read(key: 'api_keys_v1');
@@ -133,6 +157,24 @@ class SecureStorageService {
     await _storage.write(key: 'floating_commands_v1', value: json);
   }
 
+  // ── コマンドランチャー ────────────────────────────────────────
+  Future<String?> getCommandLauncher() async {
+    return _storage.read(key: 'command_launcher_v1');
+  }
+
+  Future<void> saveCommandLauncher(String json) async {
+    await _storage.write(key: 'command_launcher_v1', value: json);
+  }
+
+  // ── ポートトンネル設定 ─────────────────────────────────────────
+  Future<String?> getPortTunnels(String connectionId) async {
+    return _storage.read(key: 'port_tunnels_v1_$connectionId');
+  }
+
+  Future<void> savePortTunnels(String connectionId, String json) async {
+    await _storage.write(key: 'port_tunnels_v1_$connectionId', value: json);
+  }
+
   // ── 右アクションパネル位置 ────────────────────────────────────
   Future<String?> getRightPanelPosition() async {
     return _storage.read(key: 'right_panel_position_v1');
@@ -140,6 +182,47 @@ class SecureStorageService {
 
   Future<void> saveRightPanelPosition(String json) async {
     await _storage.write(key: 'right_panel_position_v1', value: json);
+  }
+
+  // ── Cloud Shell 認証情報キャッシュ ───────────────────────────
+  Future<Map<String, dynamic>?> getCloudShellCredentials() async {
+    final raw = await _storage.read(key: 'cloudshell_credentials_v1');
+    if (raw == null) return null;
+    try {
+      return jsonDecode(raw) as Map<String, dynamic>;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  Future<void> saveCloudShellCredentials({
+    required String host,
+    required String username,
+    required int port,
+    String? webHost,
+  }) async {
+    await _storage.write(
+      key: 'cloudshell_credentials_v1',
+      value: jsonEncode({
+        'host': host,
+        'username': username,
+        'port': port,
+        if (webHost != null) 'webHost': webHost,
+      }),
+    );
+  }
+
+  Future<void> clearCloudShellCredentials() async {
+    await _storage.delete(key: 'cloudshell_credentials_v1');
+  }
+
+  // ── 機能フラグ ──────────────────────────────────────────────
+  Future<String?> getFeatureFlags() async {
+    return _storage.read(key: 'feature_flags_v1');
+  }
+
+  Future<void> saveFeatureFlags(String json) async {
+    await _storage.write(key: 'feature_flags_v1', value: json);
   }
 
   // ── オンボーディング完了フラグ ────────────────────────────────
@@ -154,10 +237,12 @@ class SecureStorageService {
 
   // ── Google認証のみクリア（GitHub PAT・設定は保持） ────────
   Future<void> clearGoogleAuth() async {
+    clearCache();
     await _storage.delete(key: AppConstants.storageKeyAccessToken);
     await _storage.delete(key: AppConstants.storageKeyRefreshToken);
     await _storage.delete(key: AppConstants.storageKeySshPrivateKey);
     await _storage.delete(key: AppConstants.storageKeySshPublicKey);
+    await _storage.delete(key: 'cloudshell_credentials_v1');
   }
 
   // ── 全データ削除 (ログアウト) ─────────────────────────

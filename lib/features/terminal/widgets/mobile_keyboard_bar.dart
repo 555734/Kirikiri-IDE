@@ -184,30 +184,42 @@ class _Key extends StatelessWidget {
   Widget build(BuildContext context) {
     return Padding(
       padding: const EdgeInsets.only(right: 4),
-      child: Material(
-        color: const Color(0xFFFFE0E0),
-        borderRadius: BorderRadius.circular(7),
-        child: InkWell(
-          onTap: () {
-            HapticFeedback.lightImpact();
-            onTap();
-          },
-          borderRadius: BorderRadius.circular(7),
-          child: Container(
-            constraints: const BoxConstraints(minWidth: 36),
-            padding: const EdgeInsets.symmetric(horizontal: 10),
-            alignment: Alignment.center,
-            child: icon != null
-                ? Icon(icon, size: 16, color: const Color(0xFF24292E))
-                : Text(
-                    label,
-                    style: const TextStyle(
-                      color: Color(0xFF24292E),
-                      fontSize: 12,
-                      fontWeight: FontWeight.w500,
-                      letterSpacing: 0.2,
+      child: Container(
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(9),
+          boxShadow: const [
+            BoxShadow(
+              color: Color(0xFFD4A8A8),
+              blurRadius: 0,
+              offset: Offset(0, 1.5),
+            ),
+          ],
+        ),
+        child: Material(
+          color: const Color(0xFFFFE0E0),
+          borderRadius: BorderRadius.circular(9),
+          child: InkWell(
+            onTap: () {
+              HapticFeedback.lightImpact();
+              onTap();
+            },
+            borderRadius: BorderRadius.circular(9),
+            child: Container(
+              constraints: const BoxConstraints(minWidth: 36),
+              padding: const EdgeInsets.symmetric(horizontal: 10),
+              alignment: Alignment.center,
+              child: icon != null
+                  ? Icon(icon, size: 16, color: const Color(0xFF24292E))
+                  : Text(
+                      label,
+                      style: const TextStyle(
+                        color: Color(0xFF24292E),
+                        fontSize: 12,
+                        fontWeight: FontWeight.w500,
+                        letterSpacing: 0.2,
+                      ),
                     ),
-                  ),
+            ),
           ),
         ),
       ),
@@ -230,25 +242,39 @@ class _ModifierKey extends StatelessWidget {
   Widget build(BuildContext context) {
     return Padding(
       padding: const EdgeInsets.only(right: 4),
-      child: Material(
-        color: isActive ? AppColors.primary : const Color(0xFFFFE0E0),
-        borderRadius: BorderRadius.circular(7),
-        child: InkWell(
-          onTap: () {
-            HapticFeedback.selectionClick();
-            onTap();
-          },
-          borderRadius: BorderRadius.circular(7),
-          child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 10),
-            alignment: Alignment.center,
-            child: Text(
-              label,
-              style: TextStyle(
-                color: isActive ? Colors.white : const Color(0xFF24292E),
-                fontSize: 11,
-                fontWeight: FontWeight.w700,
-                letterSpacing: 0.5,
+      child: Container(
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(9),
+          boxShadow: [
+            BoxShadow(
+              color: isActive
+                  ? AppColors.primary.withOpacity(0.45)
+                  : const Color(0xFFD4A8A8),
+              blurRadius: 0,
+              offset: const Offset(0, 1.5),
+            ),
+          ],
+        ),
+        child: Material(
+          color: isActive ? AppColors.primary : const Color(0xFFFFE0E0),
+          borderRadius: BorderRadius.circular(9),
+          child: InkWell(
+            onTap: () {
+              HapticFeedback.selectionClick();
+              onTap();
+            },
+            borderRadius: BorderRadius.circular(9),
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10),
+              alignment: Alignment.center,
+              child: Text(
+                label,
+                style: TextStyle(
+                  color: isActive ? Colors.white : const Color(0xFF24292E),
+                  fontSize: 11,
+                  fontWeight: FontWeight.w700,
+                  letterSpacing: 0.5,
+                ),
               ),
             ),
           ),
@@ -275,38 +301,50 @@ class _ShortcutKey extends StatelessWidget {
   Widget build(BuildContext context) {
     return Padding(
       padding: const EdgeInsets.only(right: 4),
-      child: Material(
-        color: color.withOpacity(0.12),
-        borderRadius: BorderRadius.circular(7),
-        child: InkWell(
-          onTap: () {
-            HapticFeedback.lightImpact();
-            onTap();
-          },
-          borderRadius: BorderRadius.circular(7),
-          child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 10),
-            alignment: Alignment.center,
-            child: RichText(
-              text: TextSpan(
-                children: [
-                  TextSpan(
-                    text: '^',
-                    style: TextStyle(
-                      color: color.withOpacity(0.7),
-                      fontSize: 10,
-                      fontWeight: FontWeight.w700,
+      child: Container(
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(9),
+          boxShadow: [
+            BoxShadow(
+              color: color.withOpacity(0.30),
+              blurRadius: 0,
+              offset: const Offset(0, 1.5),
+            ),
+          ],
+        ),
+        child: Material(
+          color: color.withOpacity(0.12),
+          borderRadius: BorderRadius.circular(9),
+          child: InkWell(
+            onTap: () {
+              HapticFeedback.lightImpact();
+              onTap();
+            },
+            borderRadius: BorderRadius.circular(9),
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10),
+              alignment: Alignment.center,
+              child: RichText(
+                text: TextSpan(
+                  children: [
+                    TextSpan(
+                      text: '^',
+                      style: TextStyle(
+                        color: color.withOpacity(0.7),
+                        fontSize: 10,
+                        fontWeight: FontWeight.w700,
+                      ),
                     ),
-                  ),
-                  TextSpan(
-                    text: label,
-                    style: TextStyle(
-                      color: color,
-                      fontSize: 13,
-                      fontWeight: FontWeight.w700,
+                    TextSpan(
+                      text: label,
+                      style: TextStyle(
+                        color: color,
+                        fontSize: 13,
+                        fontWeight: FontWeight.w700,
+                      ),
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
             ),
           ),

@@ -4,6 +4,7 @@ import 'package:xterm/xterm.dart' show Terminal;
 import 'package:xterm/xterm.dart' as xterm_pkg show TerminalController;
 
 import '../../core/ssh_foreground_service.dart';
+import '../preview/ssh_tunnel_service.dart';
 import 'ssh_service.dart';
 
 /// xterm の Terminal と SshService を橋渡しするコントローラー
@@ -17,6 +18,7 @@ class TerminalController extends ChangeNotifier {
     int? sshPort,
     this.initialCommand,
     this.webHost,
+    SshTunnelService? tunnelService,
   }) : _ssh = SshService(
           workspaceId: workspaceId,
           sshHost: sshHost,
@@ -24,7 +26,8 @@ class TerminalController extends ChangeNotifier {
           sshPrivateKeyPem: sshPrivateKeyPem,
           sshUsername: sshUsername,
           sshPort: sshPort,
-        ) {
+        ),
+        _tunnelService = tunnelService {
     _initTerminal();
     _subscribeToSsh();
   }
@@ -33,6 +36,7 @@ class TerminalController extends ChangeNotifier {
   final String? initialCommand;
   final String? webHost;
   final SshService _ssh;
+  final SshTunnelService? _tunnelService;
 
   late final Terminal terminal;
   late final xterm_pkg.TerminalController xtermController;
@@ -45,6 +49,9 @@ class TerminalController extends ChangeNotifier {
   String? get errorMessage => _errorMessage;
   bool get isConnected => _connectionState == SshConnectionState.connected;
   List<String> get sshLog => _ssh.log;
+
+  /// Exposes the tunnel service for use by the terminal screen UI.
+  SshTunnelService? get tunnels => _tunnelService;
 
   final List<StreamSubscription> _subs = [];
 
@@ -67,6 +74,10 @@ class TerminalController extends ChangeNotifier {
             label: workspaceId,
             hostInfo: '${_ssh.sshUsername ?? ''}@${_ssh.sshHost}',
           );
+          // ポートトンネルを有効化
+          if (_ssh.sshClient != null) {
+            _tunnelService?.onSshConnected(_ssh.sshClient!);
+          }
           // 初期コマンドを一度だけ送信
           if (initialCommand != null) {
             Future.delayed(const Duration(milliseconds: 800), () {
@@ -78,6 +89,7 @@ class TerminalController extends ChangeNotifier {
           }
         case SshConnectionState.disconnected:
         case SshConnectionState.error:
+          _tunnelService?.onSshDisconnected();
           SshForegroundService.stop();
         case SshConnectionState.connecting:
           break;
@@ -125,6 +137,10 @@ class TerminalController extends ChangeNotifier {
     await Future.delayed(const Duration(milliseconds: 500));
     await connect();
   }
+
+  /// Detects ports with listening servers on the remote host.
+  Future<List<int>> detectRunningPorts() =>
+      _tunnelService?.detectRunningPorts() ?? Future.value([]);
 
   @override
   void dispose() {

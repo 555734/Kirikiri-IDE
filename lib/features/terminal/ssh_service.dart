@@ -170,6 +170,9 @@ class SshService {
     _session?.resizeTerminal(cols, rows);
   }
 
+  /// Exposes the underlying SSH client for port-forwarding use.
+  SSHClient? get sshClient => _client;
+
   Future<void> disconnect() async {
     _session?.close();
     _client?.close();

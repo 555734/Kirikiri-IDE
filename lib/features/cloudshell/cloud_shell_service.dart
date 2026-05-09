@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:math';
 import 'dart:typed_data';
@@ -11,11 +12,16 @@ import '../../core/secure_storage_service.dart';
 /// Cloud Shell の状態
 enum CloudShellState { unknown, starting, running, stopped, error }
 
+/// Cloud Shell 起動の各フェーズ
+enum StartupStep { idle, preparingKey, checkingState, starting, waitingRunning, registeringKey }
+
 /// Google Cloud Shell API サービス
 class CloudShellService extends ChangeNotifier {
   final _storage = SecureStorageService.instance;
 
   CloudShellState _state = CloudShellState.unknown;
+  StartupStep _startupStep = StartupStep.idle;
+  int _pollAttempt = 0;
   String? _sshHost;
   String? _sshUsername;
   int _sshPort = AppConstants.sshPort;
@@ -30,6 +36,8 @@ class CloudShellService extends ChangeNotifier {
   int _pendingVersion = 0;
 
   CloudShellState get state => _state;
+  StartupStep get startupStep => _startupStep;
+  int get pollAttempt => _pollAttempt;
   String? get sshHost => _sshHost;
   String? get sshUsername => _sshUsername;
   int get sshPort => _sshPort;
@@ -48,7 +56,11 @@ class CloudShellService extends ChangeNotifier {
 
   // ログアウト後に状態をリセットする
   void reset() {
+    _storage.clearCache();
+    unawaited(_storage.clearCloudShellCredentials());
     _state = CloudShellState.unknown;
+    _startupStep = StartupStep.idle;
+    _pollAttempt = 0;
     _sshHost = null;
     _sshUsername = null;
     _sshPort = AppConstants.sshPort;
@@ -74,31 +86,65 @@ class CloudShellService extends ChangeNotifier {
   // ── 環境の状態取得 & 起動 ────────────────────────────
 
   Future<void> startAndConnect() async {
+    if (_isLoading) return; // 再入防止
     _isLoading = true;
     _error = null;
     _state = CloudShellState.starting;
+    _startupStep = StartupStep.preparingKey;
+    _pollAttempt = 0;
     notifyListeners();
 
     try {
-      final token = await _storage.getAccessToken();
+      // トークンと公開鍵を並列で読み出す
+      final results = await Future.wait([
+        _storage.getAccessToken(),
+        _storage.getSshPublicKey(),
+      ]);
+      final token = results[0];
       if (token == null || token.isEmpty) {
         throw Exception('未ログインです。再度Googleログインしてください。');
       }
 
       // SSH鍵ペアを準備（初回 or コメント付き旧形式の場合は再生成）
-      final existingPub = await _storage.getSshPublicKey();
+      final existingPub = results[1];
       if (existingPub == null || existingPub.trim().split(' ').length > 2) {
         await _generateAndStoreSshKeyPair();
       }
 
       // まず現在の状態を確認（既に RUNNING なら start + poll をスキップ）
+      _startupStep = StartupStep.checkingState;
+      notifyListeners();
       final alreadyRunning = await _checkCurrentState(token);
       if (!alreadyRunning) {
+        _startupStep = StartupStep.starting;
+        notifyListeners();
         await _startEnvironment(token);
+
+        _startupStep = StartupStep.waitingRunning;
+        notifyListeners();
         await _pollUntilRunning(token);
       }
 
-      // 公開鍵の登録（環境の publicKeys に既にあればスキップ）
+      // この時点で _state == running & SSH 認証情報が揃っている → UI を即解放
+      _isLoading = false;
+      notifyListeners();
+
+      // 公開鍵の登録はバックグラウンドで実施（非ブロッキング）
+      unawaited(_registerKeyNonBlocking(token));
+    } catch (e) {
+      _state = CloudShellState.error;
+      _error = e.toString();
+    } finally {
+      _startupStep = StartupStep.idle;
+      if (_isLoading) _isLoading = false; // エラーパスのみここで false
+      notifyListeners();
+    }
+  }
+
+  Future<void> _registerKeyNonBlocking(String token) async {
+    _startupStep = StartupStep.registeringKey;
+    notifyListeners();
+    try {
       final publicKey = await _storage.getSshPublicKey();
       if (publicKey != null) {
         final trimmed = publicKey.trim();
@@ -109,10 +155,9 @@ class CloudShellService extends ChangeNotifier {
         }
       }
     } catch (e) {
-      _state = CloudShellState.error;
-      _error = e.toString();
+      debugPrint('公開鍵登録に失敗しました（非致命的）: $e');
     } finally {
-      _isLoading = false;
+      _startupStep = StartupStep.idle;
       notifyListeners();
     }
   }
@@ -150,6 +195,15 @@ class CloudShellService extends ChangeNotifier {
     debugPrint('登録済み公開鍵数: ${_remotePublicKeys.length}');
     _state = CloudShellState.running;
     notifyListeners();
+    // 次回起動時の optimistic SSH 接続に使うため認証情報をキャッシュ
+    if (_sshHost != null) {
+      unawaited(_storage.saveCloudShellCredentials(
+        host: _sshHost!,
+        username: _sshUsername ?? 'user',
+        port: _sshPort,
+        webHost: _webHost,
+      ));
+    }
   }
 
   // ── Cloud Shell API: 起動 ─────────────────────────────
@@ -199,6 +253,7 @@ class CloudShellService extends ChangeNotifier {
           return;
         }
 
+        _pollAttempt = i;
         _state = CloudShellState.starting;
         notifyListeners();
       } catch (e) {

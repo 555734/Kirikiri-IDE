@@ -332,6 +332,13 @@ abstract class AppLocalizations {
   /// **'初回は30秒ほどかかることがあります'**
   String get cloudShellFirstLaunchNote;
 
+  String get startupStepPreparingKey;
+  String get startupStepCheckingState;
+  String get startupStepStarting;
+  String get startupStepWaitingRunning;
+  String get startupStepRegisteringKey;
+  String startupElapsed(int seconds);
+
   /// No description provided for @cloudShellRunning.
   ///
   /// In ja, this message translates to:
@@ -1153,6 +1160,116 @@ abstract class AppLocalizations {
   /// In ja, this message translates to:
   /// **'バージョン'**
   String get version;
+
+  /// No description provided for @tunnelActive.
+  String get tunnelActive;
+
+  /// No description provided for @tunnelStop.
+  String get tunnelStop;
+
+  /// No description provided for @portDetect.
+  String get portDetect;
+
+  /// No description provided for @portDetecting.
+  String get portDetecting;
+
+  /// No description provided for @portDetectedNone.
+  String get portDetectedNone;
+
+  /// No description provided for @savedPorts.
+  String get savedPorts;
+
+  /// No description provided for @addPort.
+  String get addPort;
+
+  /// No description provided for @portLabel.
+  String get portLabel;
+
+  /// No description provided for @portNumber.
+  String get portNumber;
+
+  /// No description provided for @launcherTitle.
+  String get launcherTitle;
+
+  /// No description provided for @launcherAddCategory.
+  String get launcherAddCategory;
+
+  /// No description provided for @launcherAddCommand.
+  String get launcherAddCommand;
+
+  /// No description provided for @launcherCategoryLabel.
+  String get launcherCategoryLabel;
+
+  /// No description provided for @launcherIcon.
+  String get launcherIcon;
+
+  /// No description provided for @launcherCommandLabel.
+  String get launcherCommandLabel;
+
+  /// No description provided for @launcherCommandHint.
+  String get launcherCommandHint;
+
+  /// No description provided for @launcherEmptyCategories.
+  String get launcherEmptyCategories;
+
+  /// No description provided for @launcherEmptyCommands.
+  String get launcherEmptyCommands;
+
+  /// No description provided for @launcherRun.
+  String get launcherRun;
+
+  /// No description provided for @launcherDeleteCategory.
+  String get launcherDeleteCategory;
+
+  /// No description provided for @cicdTitle.
+  String get cicdTitle;
+
+  /// No description provided for @cicdNoRuns.
+  String get cicdNoRuns;
+
+  /// No description provided for @cicdNoJobs.
+  String get cicdNoJobs;
+
+  /// No description provided for @cicdRunning.
+  String get cicdRunning;
+
+  String get branchesTitle;
+  String get pullRequestsTitle;
+  String get branchNew;
+  String get branchName;
+  String get branchFrom;
+  String get branchDelete;
+  String get branchDeleteConfirm;
+  String get branchProtected;
+  String get branchesEmpty;
+  String get prNew;
+  String get prTitleLabel;
+  String get prBodyLabel;
+  String get prCreate;
+  String get prHead;
+  String get prBase;
+  String get prStateOpen;
+  String get prStateClosed;
+  String get prEmpty;
+
+  String get apiTestTitle;
+  String get apiTestSend;
+  String get apiTestResponse;
+  String get apiTestBody;
+  String get apiTestHeaders;
+  String get apiTestAddHeader;
+  String get apiTestInsertApiKey;
+  String get apiTestNoApiKeys;
+
+  String get additionalFeaturesSection;
+  String get featureSshTab;
+  String get featureSshTabSubtitle;
+  String get featureApiKeys;
+  String get featureApiKeysSubtitle;
+  String get featureCicd;
+  String get featureCicdSubtitle;
+  String get featurePlugins;
+  String get featurePluginsSubtitle;
 }
 
 class _AppLocalizationsDelegate
