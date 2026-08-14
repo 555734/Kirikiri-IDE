@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:dartssh2/dartssh2.dart' show SSHClient;
 import 'package:flutter/foundation.dart';
 import 'package:xterm/xterm.dart' show Terminal;
@@ -7,7 +8,20 @@ import 'package:xterm/xterm.dart' as xterm_pkg show TerminalController;
 import '../../core/known_hosts_service.dart';
 import '../../core/ssh_foreground_service.dart';
 import '../preview/ssh_tunnel_service.dart';
+import 'reconnect_policy.dart';
 import 'ssh_service.dart';
+
+/// UI 層から供給される表示文言。サービス層はロケールを知らないため、
+/// ターミナルに書き出す文言はここを通して受け取る。
+class TerminalMessages {
+  const TerminalMessages({
+    required this.describeFailure,
+    required this.reconnecting,
+  });
+
+  final String Function(SshFailure failure) describeFailure;
+  final String Function() reconnecting;
+}
 
 /// xterm の Terminal と SshService を橋渡しするコントローラー
 class TerminalController extends ChangeNotifier {
@@ -33,6 +47,7 @@ class TerminalController extends ChangeNotifier {
         _tunnelService = tunnelService {
     _initTerminal();
     _subscribeToSsh();
+    _watchConnectivity();
   }
 
   final String workspaceId;
@@ -53,7 +68,7 @@ class TerminalController extends ChangeNotifier {
   bool _isDisposed = false;
 
   SshConnectionState get connectionState => _connectionState;
-  /// 直近の接続失敗。表示文言は UI 層が [failureLocalizer] で決める。
+  /// 直近の接続失敗。表示文言は UI 層が [messages] で決める。
   SshFailure? get failure => _failure;
   bool get isConnected => _connectionState == SshConnectionState.connected;
   List<String> get sshLog => _ssh.log;
@@ -77,6 +92,7 @@ class TerminalController extends ChangeNotifier {
 
       switch (state) {
         case SshConnectionState.connected:
+          _reconnectPolicy.onConnected();
           // バックグラウンド維持のためフォアグラウンドサービスを開始
           SshForegroundService.start(
             label: workspaceId,
@@ -109,6 +125,7 @@ class TerminalController extends ChangeNotifier {
     _subs.add(_ssh.errorStream.listen((failure) {
       if (_isDisposed) return;
       _failure = failure;
+      _reconnectPolicy.onFailure(failure.kind);
       terminal.write(
           '\r\n\x1B[31m[kirikiri] ${_describe(failure)}\x1B[0m\r\n');
       notifyListeners();
@@ -120,14 +137,60 @@ class TerminalController extends ChangeNotifier {
   set onHostkeyPrompt(HostkeyPromptHandler? handler) =>
       _ssh.onHostkeyPrompt = handler;
 
-  /// 失敗をロケールに応じた文言へ変換するコールバック。UI 層が設定する。
+  /// ターミナルに表示する文言。UI 層が接続前に設定する。
   /// 未設定の場合は技術的な詳細のみを表示する。
-  String Function(SshFailure failure)? failureLocalizer;
+  TerminalMessages? messages;
 
-  String _describe(SshFailure failure) {
-    final localize = failureLocalizer;
-    if (localize != null) return localize(failure);
-    return failure.detail ?? failure.kind.name;
+  String _describe(SshFailure failure) =>
+      messages?.describeFailure(failure) ??
+      failure.detail ??
+      failure.kind.name;
+
+  // ── 自動再接続 ──────────────────────────────────────────
+  //
+  // モバイルでは通信の切り替わりやアプリの再開で接続が切れる。切断を防ぐ
+  // ことはできないため、復帰を検知して自動で繋ぎ直す。リモート側の作業は
+  // tmux が保持しているので、繋ぎ直せば元の画面に戻れる。
+
+  final ReconnectPolicy _reconnectPolicy = ReconnectPolicy();
+  StreamSubscription<List<ConnectivityResult>>? _connectivitySub;
+  Timer? _reconnectDebounce;
+
+  void _watchConnectivity() {
+    _connectivitySub = Connectivity().onConnectivityChanged.listen((results) {
+      final online =
+          results.any((r) => r != ConnectivityResult.none);
+      if (online) _scheduleReconnect();
+    });
+  }
+
+  /// アプリが前面に戻ったときに UI 層から呼ぶ。
+  /// iOS はバックグラウンドでソケットを維持できないため、復帰時はほぼ確実に
+  /// 切れている。
+  void onAppResumed() => _scheduleReconnect();
+
+  /// 通信の復帰イベントは短時間に連続して届くため、まとめて1回だけ試す。
+  void _scheduleReconnect() {
+    if (_isDisposed) return;
+    if (!_reconnectPolicy.isAllowed) return;
+    if (_connectionState == SshConnectionState.connected ||
+        _connectionState == SshConnectionState.connecting) {
+      return;
+    }
+
+    _reconnectDebounce?.cancel();
+    _reconnectDebounce = Timer(const Duration(seconds: 1), () {
+      if (_isDisposed || !_reconnectPolicy.isAllowed) return;
+      if (_connectionState == SshConnectionState.connected ||
+          _connectionState == SshConnectionState.connecting) {
+        return;
+      }
+      _reconnectPolicy.onAttempt();
+      unawaited(reconnect(
+        notice: messages?.reconnecting(),
+        userInitiated: false,
+      ));
+    });
   }
 
   /// 準備フックを実行してから初期コマンドを送信する。
@@ -150,7 +213,13 @@ class TerminalController extends ChangeNotifier {
     _ssh.write('$initialCommand\n');
   }
 
+  /// 利用者の操作による接続。自動再接続の試行回数をリセットする。
   Future<void> connect() async {
+    _reconnectPolicy.onUserConnect();
+    await _connect();
+  }
+
+  Future<void> _connect() async {
     _failure = null;
     notifyListeners();
     await _ssh.connect(
@@ -160,6 +229,8 @@ class TerminalController extends ChangeNotifier {
   }
 
   Future<void> disconnect() async {
+    // 利用者による切断。以後は自動で繋ぎ直さない。
+    _reconnectPolicy.onUserDisconnect();
     await _ssh.disconnect();
     await SshForegroundService.stop();
   }
@@ -172,13 +243,17 @@ class TerminalController extends ChangeNotifier {
 
   /// 再接続する。[notice] が渡された場合はターミナルに表示する
   /// （文言は UI 層がロケールに応じて決める）。
-  Future<void> reconnect({String? notice}) async {
+  ///
+  /// [userInitiated] が false のときは自動再接続なので、試行回数を
+  /// リセットしない（リセットすると上限が効かず延々と再試行してしまう）。
+  Future<void> reconnect({String? notice, bool userInitiated = true}) async {
+    if (userInitiated) _reconnectPolicy.onUserConnect();
     if (notice != null) {
       terminal.write('\r\n\x1B[33m[kirikiri] $notice\x1B[0m\r\n');
     }
     await _ssh.disconnect();
     await Future.delayed(const Duration(milliseconds: 500));
-    await connect();
+    await _connect();
   }
 
   /// Detects ports with listening servers on the remote host.
@@ -188,6 +263,8 @@ class TerminalController extends ChangeNotifier {
   @override
   void dispose() {
     _isDisposed = true;
+    _reconnectDebounce?.cancel();
+    _connectivitySub?.cancel();
     for (final s in _subs) {
       s.cancel();
     }

@@ -78,7 +78,10 @@ class _TerminalScreenState extends State<TerminalScreen>
       // ホスト鍵の確認ダイアログを接続前に登録する。未登録のまま接続すると
       // 未知のホスト鍵はすべて拒否される（SshService のフェイルセーフ）。
       controller.onHostkeyPrompt = _confirmHostkey;
-      controller.failureLocalizer = _localizeFailure;
+      controller.messages = TerminalMessages(
+        describeFailure: _localizeFailure,
+        reconnecting: () => AppLocalizations.of(context)!.sshReconnecting,
+      );
       controller.connect();
       _loadFloatingCmds();
       _loadPanelPosition();
@@ -240,6 +243,15 @@ class _TerminalScreenState extends State<TerminalScreen>
         ],
       ),
     );
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    // iOS はバックグラウンドでソケットを維持できないため、復帰時は
+    // 切れている前提で繋ぎ直しを試みる。
+    if (state == AppLifecycleState.resumed && mounted) {
+      context.read<TerminalController>().onAppResumed();
+    }
   }
 
   @override
