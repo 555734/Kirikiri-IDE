@@ -16,6 +16,9 @@ android {
     ndkVersion flutter.ndkVersion
 
     compileOptions {
+        // flutter_local_notifications がスケジュール処理に java.time を使うため
+        // 必須。minSdk 21 でも新しい API を利用できるようにする。
+        coreLibraryDesugaringEnabled true
         sourceCompatibility JavaVersion.VERSION_17
         targetCompatibility JavaVersion.VERSION_17
     }
@@ -52,4 +55,8 @@ android {
 
 flutter {
     source "../.."
+}
+
+dependencies {
+    coreLibraryDesugaring 'com.android.tools:desugar_jdk_libs:2.1.4'
 }
