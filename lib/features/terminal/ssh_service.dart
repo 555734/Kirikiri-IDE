@@ -214,7 +214,7 @@ class SshService {
       cancelOnError: false,
     );
 
-    session.stderr?.listen(
+    session.stderr.listen(
       (data) => _outputController.add(utf8.decode(data, allowMalformed: true)),
       onError: (_) {},
       cancelOnError: false,

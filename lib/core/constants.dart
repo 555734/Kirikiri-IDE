@@ -28,6 +28,14 @@ class AppConstants {
   // ── GitHub API ─────────────────────────────────────────
   static const String gitHubApiBase = 'https://api.github.com';
 
+  // ── HTTP ───────────────────────────────────────────────
+  /// 通常の API 呼び出しのタイムアウト。
+  /// モバイル回線では接続が黙って切れることがあるため必ず指定する。
+  static const Duration httpTimeout = Duration(seconds: 30);
+
+  /// プラグイン ZIP のような大きなレスポンス向けのタイムアウト。
+  static const Duration httpDownloadTimeout = Duration(minutes: 2);
+
   // ── SSH ────────────────────────────────────────────────
   static const int sshPort = 6000; // Cloud Shell SSH ポート
   static const int sshConnectTimeoutSeconds = 20;

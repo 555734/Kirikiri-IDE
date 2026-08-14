@@ -4,7 +4,6 @@ import 'package:provider/provider.dart';
 
 import '../../theme/app_theme.dart';
 import 'loaded_plugin.dart';
-import 'plugin_manifest.dart';
 import 'plugin_service.dart';
 import 'plugin_store_screen.dart';
 

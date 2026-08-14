@@ -492,10 +492,12 @@ class GitHubService extends ChangeNotifier {
   }
 
   Future<String> _fetchRaw(String path, {Duration? ttl}) async {
-    final response = await http.get(
-      Uri.parse('${AppConstants.gitHubApiBase}$path'),
-      headers: _headers,
-    );
+    final response = await http
+        .get(
+          Uri.parse('${AppConstants.gitHubApiBase}$path'),
+          headers: _headers,
+        )
+        .timeout(AppConstants.httpTimeout);
     if (response.statusCode != 200) {
       throw Exception('GitHub API ${response.statusCode}');
     }
@@ -507,10 +509,12 @@ class GitHubService extends ChangeNotifier {
     if (_inFlight.containsKey(path)) return;
     final future = _fetchRaw(path, ttl: ttl);
     _inFlight[path] = future;
+    // バックグラウンド更新の失敗は無視する（stale なキャッシュを返し続ける）。
+    // 元の cascade は catchError がハンドラを付け替えられず、失敗が
+    // 未処理の非同期エラーとして残っていた。
     future
-      ..then((_) => notifyListeners())
-      ..catchError((_) {})
-      ..whenComplete(() => _inFlight.remove(path));
+        .then((_) => notifyListeners(), onError: (_) {})
+        .whenComplete(() => _inFlight.remove(path));
   }
 
   Future<List<GitHubBranch>> getBranches(String owner, String repo) async {
@@ -576,11 +580,13 @@ class GitHubService extends ChangeNotifier {
   }
 
   Future<void> _put(String path, String body) async {
-    final response = await http.put(
-      Uri.parse('${AppConstants.gitHubApiBase}$path'),
-      headers: {..._headers, 'Content-Type': 'application/json'},
-      body: body,
-    );
+    final response = await http
+        .put(
+          Uri.parse('${AppConstants.gitHubApiBase}$path'),
+          headers: {..._headers, 'Content-Type': 'application/json'},
+          body: body,
+        )
+        .timeout(AppConstants.httpTimeout);
     if (response.statusCode != 200 && response.statusCode != 201) {
       throw Exception(
           'GitHub API ${response.statusCode}: ${response.body}');
@@ -588,11 +594,13 @@ class GitHubService extends ChangeNotifier {
   }
 
   Future<void> _post(String path, String body) async {
-    final response = await http.post(
-      Uri.parse('${AppConstants.gitHubApiBase}$path'),
-      headers: {..._headers, 'Content-Type': 'application/json'},
-      body: body,
-    );
+    final response = await http
+        .post(
+          Uri.parse('${AppConstants.gitHubApiBase}$path'),
+          headers: {..._headers, 'Content-Type': 'application/json'},
+          body: body,
+        )
+        .timeout(AppConstants.httpTimeout);
     if (response.statusCode != 200 && response.statusCode != 201) {
       throw Exception(
           'GitHub API ${response.statusCode}: ${response.body}');
@@ -600,11 +608,13 @@ class GitHubService extends ChangeNotifier {
   }
 
   Future<String> _postWithResponse(String path, String body) async {
-    final response = await http.post(
-      Uri.parse('${AppConstants.gitHubApiBase}$path'),
-      headers: {..._headers, 'Content-Type': 'application/json'},
-      body: body,
-    );
+    final response = await http
+        .post(
+          Uri.parse('${AppConstants.gitHubApiBase}$path'),
+          headers: {..._headers, 'Content-Type': 'application/json'},
+          body: body,
+        )
+        .timeout(AppConstants.httpTimeout);
     if (response.statusCode != 200 && response.statusCode != 201) {
       throw Exception(
           'GitHub API ${response.statusCode}: ${response.body}');
@@ -613,10 +623,12 @@ class GitHubService extends ChangeNotifier {
   }
 
   Future<void> _delete(String path) async {
-    final response = await http.delete(
-      Uri.parse('${AppConstants.gitHubApiBase}$path'),
-      headers: _headers,
-    );
+    final response = await http
+        .delete(
+          Uri.parse('${AppConstants.gitHubApiBase}$path'),
+          headers: _headers,
+        )
+        .timeout(AppConstants.httpTimeout);
     if (response.statusCode != 204 && response.statusCode != 200) {
       throw Exception(
           'GitHub API ${response.statusCode}: ${response.body}');

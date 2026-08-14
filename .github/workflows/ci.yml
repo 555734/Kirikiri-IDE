@@ -1,0 +1,49 @@
+name: CI
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  analyze-and-test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: subosito/flutter-action@v2
+        with:
+          # リリースビルドと同じく再現性のためバージョンを固定する
+          flutter-version: 3.47.0
+          channel: stable
+          cache: true
+
+      - name: Install dependencies
+        run: flutter pub get
+
+      - name: Generate localizations
+        run: flutter gen-l10n
+
+      - name: Verify generated localizations are up to date
+        run: |
+          if ! git diff --quiet lib/l10n; then
+            echo "::error::lib/l10n の生成物が ARB と一致していません。"
+            echo "ローカルで 'flutter gen-l10n' を実行してコミットしてください。"
+            git diff --stat lib/l10n
+            exit 1
+          fi
+
+      # infos（withOpacity の非推奨警告など）は既存分が多いため警告に留め、
+      # error と warning のみ失敗させる。
+      - name: Analyze
+        run: flutter analyze --no-fatal-infos
+
+      - name: Test
+        run: flutter test

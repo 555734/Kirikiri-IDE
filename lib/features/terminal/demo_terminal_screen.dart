@@ -292,7 +292,6 @@ class _TerminalOutput extends StatelessWidget {
 
   TextSpan _buildOutput() {
     const g = Color(0xFF16A34A);   // green
-    const b = Color(0xFF1D4ED8);   // blue
     const y = Color(0xFFD97706);   // yellow/amber
     const r = Color(0xFFDC2626);   // red
     const c = Color(0xFF0891B2);   // cyan

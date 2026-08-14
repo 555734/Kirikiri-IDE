@@ -166,11 +166,13 @@ class CloudShellService extends ChangeNotifier {
 
   Future<bool> _checkCurrentState(String token) async {
     try {
-      final response = await http.get(
-        Uri.parse(
-            '${AppConstants.cloudShellApiBase}/users/me/environments/default'),
-        headers: {'Authorization': 'Bearer $token'},
-      );
+      final response = await http
+          .get(
+            Uri.parse(
+                '${AppConstants.cloudShellApiBase}/users/me/environments/default'),
+            headers: {'Authorization': 'Bearer $token'},
+          )
+          .timeout(AppConstants.httpTimeout);
       if (response.statusCode == 200) {
         final json = jsonDecode(response.body) as Map<String, dynamic>;
         if (json['state'] == 'RUNNING') {
@@ -209,18 +211,20 @@ class CloudShellService extends ChangeNotifier {
   // ── Cloud Shell API: 起動 ─────────────────────────────
 
   Future<void> _startEnvironment(String token) async {
-    final response = await http.post(
-      Uri.parse(
-          '${AppConstants.cloudShellApiBase}/users/me/environments/default:start'),
-      headers: {
-        'Authorization': 'Bearer $token',
-        'Content-Type': 'application/json',
-      },
-      body: '{}',
-    );
+    final response = await http
+        .post(
+          Uri.parse(
+              '${AppConstants.cloudShellApiBase}/users/me/environments/default:start'),
+          headers: {
+            'Authorization': 'Bearer $token',
+            'Content-Type': 'application/json',
+          },
+          body: '{}',
+        )
+        .timeout(AppConstants.httpTimeout);
     if (response.statusCode != 200 && response.statusCode != 204) {
       if (!response.body.contains('already')) {
-        debugPrint('Start: ${response.statusCode} ${response.body}');
+        debugPrint('Start: HTTP ${response.statusCode}');
       }
     }
   }
@@ -233,11 +237,13 @@ class CloudShellService extends ChangeNotifier {
       if (i > 0) await Future.delayed(const Duration(seconds: 2));
 
       try {
-        final response = await http.get(
-          Uri.parse(
-              '${AppConstants.cloudShellApiBase}/users/me/environments/default'),
-          headers: {'Authorization': 'Bearer $token'},
-        );
+        final response = await http
+            .get(
+              Uri.parse(
+                  '${AppConstants.cloudShellApiBase}/users/me/environments/default'),
+              headers: {'Authorization': 'Bearer $token'},
+            )
+            .timeout(AppConstants.httpTimeout);
 
         if (response.statusCode == 401) {
           throw Exception('認証期限切れです。再度Googleログインしてください。');
@@ -274,17 +280,19 @@ class CloudShellService extends ChangeNotifier {
     for (var attempt = 1; attempt <= 3; attempt++) {
       debugPrint('addPublicKey 試行 $attempt/3');
 
-      final response = await http.post(
-        Uri.parse(
-            '${AppConstants.cloudShellApiBase}/users/me/environments/default:addPublicKey'),
-        headers: {
-          'Authorization': 'Bearer $token',
-          'Content-Type': 'application/json',
-        },
-        body: jsonEncode({'key': keyToRegister}),
-      );
+      final response = await http
+          .post(
+            Uri.parse(
+                '${AppConstants.cloudShellApiBase}/users/me/environments/default:addPublicKey'),
+            headers: {
+              'Authorization': 'Bearer $token',
+              'Content-Type': 'application/json',
+            },
+            body: jsonEncode({'key': keyToRegister}),
+          )
+          .timeout(AppConstants.httpTimeout);
 
-      debugPrint('addPublicKey: ${response.statusCode} ${response.body}');
+      debugPrint('addPublicKey: HTTP ${response.statusCode}');
 
       // 成功
       if (response.statusCode == 200 || response.statusCode == 201) {
@@ -334,10 +342,12 @@ class CloudShellService extends ChangeNotifier {
       if (i > 0) await Future.delayed(const Duration(seconds: 2));
 
       try {
-        final response = await http.get(
-          Uri.parse(url),
-          headers: {'Authorization': 'Bearer $token'},
-        );
+        final response = await http
+            .get(
+              Uri.parse(url),
+              headers: {'Authorization': 'Bearer $token'},
+            )
+            .timeout(AppConstants.httpTimeout);
         if (response.statusCode == 200) {
           final op = jsonDecode(response.body) as Map<String, dynamic>;
           if (op['done'] == true) {

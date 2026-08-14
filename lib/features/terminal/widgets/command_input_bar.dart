@@ -280,7 +280,6 @@ class _BarIconButton extends StatelessWidget {
     required this.tooltip,
     this.onTap,
     this.filled = false,
-    this.bgColor = const Color(0xFFFFE8E8),
   });
 
   final IconData icon;
@@ -288,7 +287,8 @@ class _BarIconButton extends StatelessWidget {
   final String tooltip;
   final VoidCallback? onTap;
   final bool filled;
-  final Color bgColor;
+
+  static const Color _inactiveBg = Color(0xFFFFE8E8);
 
   @override
   Widget build(BuildContext context) {
@@ -309,7 +309,7 @@ class _BarIconButton extends StatelessWidget {
               )
             : null,
         child: Material(
-          color: active ? AppColors.primary : bgColor,
+          color: active ? AppColors.primary : _inactiveBg,
           borderRadius: BorderRadius.circular(8),
           child: InkWell(
             onTap: onTap != null
