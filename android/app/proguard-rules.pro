@@ -4,12 +4,17 @@
 # FileNotFoundException で失敗する。
 
 # ── Flutter ────────────────────────────────────────────────
--keep class io.flutter.app.** { *; }
--keep class io.flutter.plugin.** { *; }
--keep class io.flutter.util.** { *; }
--keep class io.flutter.view.** { *; }
+# io.flutter.** を丸ごと保持する（下位のパターンはこれに含まれるため不要）
 -keep class io.flutter.** { *; }
--keep class io.flutter.plugins.** { *; }
+
+# Flutter エンジンは遅延コンポーネント（Play Feature Delivery）用に
+# Play Core を参照するが、このアプリは遅延コンポーネントを使わないので
+# 依存を入れていない。AGP 8 では参照先の欠落がエラーになるため、
+# 警告を抑止する。実行時に読み込まれることはない。
+#   FlutterPlayStoreSplitApplication は AndroidManifest から参照されておらず
+#   （${applicationName} は FlutterApplication に解決される）、
+#   PlayStoreDeferredComponentManager も使用していない。
+-dontwarn com.google.android.play.core.**
 
 # ── flutter_secure_storage (androidx.security / Tink) ─────
 # EncryptedSharedPreferences はリフレクションで Tink のプリミティブを解決する
