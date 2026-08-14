@@ -1,3 +1,4 @@
+import 'package:dartssh2/dartssh2.dart' show SSHClient;
 import 'package:flutter/material.dart';
 import 'package:kirikiri/l10n/app_localizations.dart';
 import 'package:provider/provider.dart';
@@ -7,6 +8,8 @@ import '../../core/screenshot_mode.dart';
 import '../../core/secure_storage_service.dart';
 import '../../theme/app_theme.dart';
 import '../../features/auth/google_auth_service.dart';
+import '../../features/github/git_credentials.dart';
+import '../../features/github/github_service.dart';
 import '../../features/preview/port_tunnel_config_service.dart';
 import '../../features/preview/ssh_tunnel_service.dart';
 import '../../features/terminal/demo_terminal_screen.dart';
@@ -323,8 +326,11 @@ class _EagerTerminalViewState extends State<_EagerTerminalView> {
     final port = service.isRunning ? service.sshPort : _cachedSshPort;
     final webHost = (service.isRunning ? service.webHost : null) ?? _cachedWebHost;
 
-    final repoCommand = _overrideInitialCommand
-        ?? _buildInitialCommand(service.consumePendingShellCommand());
+    final pendingCommand = service.consumePendingShellCommand();
+    // リポジトリを開くときだけ git の資格情報をリモートへ登録する
+    final opensRepo = _overrideInitialCommand != null || pendingCommand != null;
+    final repoCommand =
+        _overrideInitialCommand ?? _buildInitialCommand(pendingCommand);
     _overrideInitialCommand = null;
     _handledPendingVersion = service.pendingVersion;
     _ctrlHost = host;
@@ -341,6 +347,7 @@ class _EagerTerminalViewState extends State<_EagerTerminalView> {
       initialCommand: repoCommand,
       webHost: webHost,
       tunnelService: tunnel,
+      onBeforeInitialCommand: opensRepo ? _provisionGitCredentials : null,
     );
 
     setState(() {
@@ -348,6 +355,17 @@ class _EagerTerminalViewState extends State<_EagerTerminalView> {
       _tunnelService = tunnel;
       _ctrl = ctrl;
     });
+  }
+
+  /// GitHub PAT をリモートの git credential cache へ登録する。
+  ///
+  /// PTY を経由しない別チャネルで行うため、PAT はターミナルにも
+  /// シェル履歴にも clone 先の .git/config にも残らない。
+  Future<void> _provisionGitCredentials(SSHClient client) async {
+    if (!mounted) return;
+    final pat = context.read<GitHubService>().pat;
+    if (pat == null || pat.isEmpty) return;
+    await GitCredentials.provision(client, pat);
   }
 
   void _maybeSendPendingCommand() {

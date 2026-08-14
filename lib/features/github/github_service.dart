@@ -318,6 +318,10 @@ class GitHubService extends ChangeNotifier {
   String? get error => _error;
   String? get pat => _pat;
 
+  /// テスト用に PAT を直接設定する（ネットワーク検証を行わない）。
+  @visibleForTesting
+  void setPatForTesting(String? pat) => _pat = pat;
+
   Future<void> init() async {
     _pat = await _storage.getGitHubPat();
     if (isAuthenticated) {
@@ -439,11 +443,14 @@ class GitHubService extends ChangeNotifier {
         .toList();
   }
 
-  // PAT を使った clone URL（private リポジトリ対応）
-  String cloneUrl(GitHubRepo repo) {
-    if (!repo.isPrivate || _pat == null) return repo.cloneUrl;
-    return 'https://oauth2:$_pat@github.com/${repo.owner}/${repo.name}.git';
-  }
+  /// clone に使う URL。PAT は決して埋め込まない。
+  ///
+  /// 埋め込むと clone 先の `.git/config` に平文で永続化され、ターミナルの
+  /// スクロールバックとシェル履歴にも残る。private リポジトリの認証は
+  /// [GitCredentials] がリモートの git credential cache へ別チャネルで
+  /// 登録する。
+  String cloneUrl(GitHubRepo repo) =>
+      'https://github.com/${repo.owner}/${repo.name}.git';
 
   // Cloud Shell で実行する clone/pull コマンド
   String buildShellCommand(GitHubRepo repo, {String? branch}) {
@@ -452,8 +459,11 @@ class GitHubService extends ChangeNotifier {
     final checkoutSuffix = (branch != null && branch != repo.defaultBranch)
         ? ' && git switch "$branch"'
         : '';
+    // 既存の clone は以前のバージョンで PAT 入りの URL を保存している
+    // 可能性があるため、pull 前に必ず資格情報なしの URL へ戻す。
     return 'if [ -d "$dir/.git" ]; then '
-        'echo "↓ Pulling ${repo.name}..." && cd "$dir" && git pull$checkoutSuffix; '
+        'echo "↓ Pulling ${repo.name}..." && cd "$dir" && '
+        'git remote set-url origin "$url" && git pull$checkoutSuffix; '
         'else '
         'echo "⬇ Cloning ${repo.fullName}..." && git clone "$url" "$dir" && cd "$dir"$checkoutSuffix; '
         'fi';
