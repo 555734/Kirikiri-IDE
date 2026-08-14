@@ -1,8 +1,10 @@
 import 'dart:async';
+import 'package:dartssh2/dartssh2.dart' show SSHClient;
 import 'package:flutter/foundation.dart';
 import 'package:xterm/xterm.dart' show Terminal;
 import 'package:xterm/xterm.dart' as xterm_pkg show TerminalController;
 
+import '../../core/known_hosts_service.dart';
 import '../../core/ssh_foreground_service.dart';
 import '../preview/ssh_tunnel_service.dart';
 import 'ssh_service.dart';
@@ -18,6 +20,7 @@ class TerminalController extends ChangeNotifier {
     int? sshPort,
     this.initialCommand,
     this.webHost,
+    this.onBeforeInitialCommand,
     SshTunnelService? tunnelService,
   }) : _ssh = SshService(
           workspaceId: workspaceId,
@@ -35,6 +38,10 @@ class TerminalController extends ChangeNotifier {
   final String workspaceId;
   final String? initialCommand;
   final String? webHost;
+
+  /// 接続確立後、[initialCommand] を送信する前に実行されるフック。
+  /// ターミナルに出したくない準備処理（資格情報の登録など）に使う。
+  final Future<void> Function(SSHClient client)? onBeforeInitialCommand;
   final SshService _ssh;
   final SshTunnelService? _tunnelService;
 
@@ -80,12 +87,7 @@ class TerminalController extends ChangeNotifier {
           }
           // 初期コマンドを一度だけ送信
           if (initialCommand != null) {
-            Future.delayed(const Duration(milliseconds: 800), () {
-              if (!_isDisposed &&
-                  _connectionState == SshConnectionState.connected) {
-                _ssh.write('$initialCommand\n');
-              }
-            });
+            unawaited(_runInitialCommand());
           }
         case SshConnectionState.disconnected:
         case SshConnectionState.error:
@@ -109,6 +111,31 @@ class TerminalController extends ChangeNotifier {
       terminal.write('\r\n\x1B[31m[kirikiri] $msg\x1B[0m\r\n');
       notifyListeners();
     }));
+  }
+
+  /// 未知・変更されたホスト鍵をユーザーに確認するためのコールバック。
+  /// 接続前に UI 層が設定する。未設定なら該当する鍵は拒否される。
+  set onHostkeyPrompt(HostkeyPromptHandler? handler) =>
+      _ssh.onHostkeyPrompt = handler;
+
+  /// 準備フックを実行してから初期コマンドを送信する。
+  Future<void> _runInitialCommand() async {
+    final hook = onBeforeInitialCommand;
+    final client = _ssh.sshClient;
+    if (hook != null && client != null) {
+      try {
+        await hook(client);
+      } catch (e) {
+        // 準備に失敗しても接続自体は維持し、警告のみ表示する
+        if (!_isDisposed) {
+          terminal.write('\r\n\x1B[33m[kirikiri] $e\x1B[0m\r\n');
+        }
+      }
+    }
+
+    await Future.delayed(const Duration(milliseconds: 800));
+    if (_isDisposed || _connectionState != SshConnectionState.connected) return;
+    _ssh.write('$initialCommand\n');
   }
 
   Future<void> connect() async {

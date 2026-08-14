@@ -81,6 +81,9 @@ class AppLocalizationsJa extends AppLocalizations {
   String get googleAccountOnly => 'Googleアカウントのみ使用。\nトークンはデバイスに安全に保存されます。';
 
   @override
+  String get tryDemo => 'デモを試す（アカウント不要）';
+
+  @override
   String get onboardingWelcomeTitle => 'ようこそ\nkirikiri へ';
 
   @override
@@ -133,16 +136,23 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get startupStepPreparingKey => 'SSH 鍵を準備中';
+
   @override
   String get startupStepCheckingState => '環境の状態を確認中';
+
   @override
   String get startupStepStarting => '環境を起動中';
+
   @override
   String get startupStepWaitingRunning => '起動完了を待機中';
+
   @override
   String get startupStepRegisteringKey => 'SSH 鍵を登録中';
+
   @override
-  String startupElapsed(int seconds) => '${seconds}秒経過';
+  String startupElapsed(int seconds) {
+    return '$seconds秒経過';
+  }
 
   @override
   String get cloudShellRunning => 'Cloud Shell 起動中';
@@ -730,6 +740,37 @@ class AppLocalizationsJa extends AppLocalizations {
   String get apiTestNoApiKeys => 'APIキーが保存されていません';
 
   @override
+  String get hostkeyUnknownTitle => 'ホスト鍵の確認';
+
+  @override
+  String get hostkeyChangedTitle => 'ホスト鍵が変更されています';
+
+  @override
+  String hostkeyUnknownBody(String host) {
+    return '$host へは初めて接続します。表示されている指紋がサーバー管理者の提示した値と一致することを確認してください。';
+  }
+
+  @override
+  String hostkeyChangedBody(String host) {
+    return '$host のホスト鍵が前回接続時と異なります。中間者攻撃を受けているか、サーバーが再構築された可能性があります。心当たりがない場合は接続しないでください。';
+  }
+
+  @override
+  String get hostkeyTypeLabel => '鍵種別';
+
+  @override
+  String get hostkeyFingerprintLabel => '提示された指紋';
+
+  @override
+  String get hostkeyKnownFingerprintLabel => '保存済みの指紋';
+
+  @override
+  String get hostkeyTrustButton => '信頼して接続';
+
+  @override
+  String get hostkeyRejectButton => '接続しない';
+
+  @override
   String get additionalFeaturesSection => '追加機能';
 
   @override
@@ -742,13 +783,13 @@ class AppLocalizationsJa extends AppLocalizations {
   String get featureApiKeys => 'APIキー & テスト';
 
   @override
-  String get featureApiKeysSubtitle => 'キー管理とREST APIテスト';
+  String get featureApiKeysSubtitle => 'APIキーの管理とRESTテスト';
 
   @override
   String get featureCicd => 'CI/CD';
 
   @override
-  String get featureCicdSubtitle => 'GitHub Actionsのワークフロー表示';
+  String get featureCicdSubtitle => 'GitHub Actionsのワークフローを表示';
 
   @override
   String get featurePlugins => 'プラグイン';

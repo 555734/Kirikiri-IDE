@@ -242,6 +242,12 @@ abstract class AppLocalizations {
   /// **'Googleアカウントのみ使用。\nトークンはデバイスに安全に保存されます。'**
   String get googleAccountOnly;
 
+  /// No description provided for @tryDemo.
+  ///
+  /// In ja, this message translates to:
+  /// **'デモを試す（アカウント不要）'**
+  String get tryDemo;
+
   /// No description provided for @onboardingWelcomeTitle.
   ///
   /// In ja, this message translates to:
@@ -332,11 +338,40 @@ abstract class AppLocalizations {
   /// **'初回は30秒ほどかかることがあります'**
   String get cloudShellFirstLaunchNote;
 
+  /// No description provided for @startupStepPreparingKey.
+  ///
+  /// In ja, this message translates to:
+  /// **'SSH 鍵を準備中'**
   String get startupStepPreparingKey;
+
+  /// No description provided for @startupStepCheckingState.
+  ///
+  /// In ja, this message translates to:
+  /// **'環境の状態を確認中'**
   String get startupStepCheckingState;
+
+  /// No description provided for @startupStepStarting.
+  ///
+  /// In ja, this message translates to:
+  /// **'環境を起動中'**
   String get startupStepStarting;
+
+  /// No description provided for @startupStepWaitingRunning.
+  ///
+  /// In ja, this message translates to:
+  /// **'起動完了を待機中'**
   String get startupStepWaitingRunning;
+
+  /// No description provided for @startupStepRegisteringKey.
+  ///
+  /// In ja, this message translates to:
+  /// **'SSH 鍵を登録中'**
   String get startupStepRegisteringKey;
+
+  /// No description provided for @startupElapsed.
+  ///
+  /// In ja, this message translates to:
+  /// **'{seconds}秒経過'**
   String startupElapsed(int seconds);
 
   /// No description provided for @cloudShellRunning.
@@ -1162,113 +1197,411 @@ abstract class AppLocalizations {
   String get version;
 
   /// No description provided for @tunnelActive.
+  ///
+  /// In ja, this message translates to:
+  /// **'アクティブ'**
   String get tunnelActive;
 
   /// No description provided for @tunnelStop.
+  ///
+  /// In ja, this message translates to:
+  /// **'停止'**
   String get tunnelStop;
 
   /// No description provided for @portDetect.
+  ///
+  /// In ja, this message translates to:
+  /// **'検出'**
   String get portDetect;
 
   /// No description provided for @portDetecting.
+  ///
+  /// In ja, this message translates to:
+  /// **'スキャン中...'**
   String get portDetecting;
 
   /// No description provided for @portDetectedNone.
+  ///
+  /// In ja, this message translates to:
+  /// **'ポートが見つかりません'**
   String get portDetectedNone;
 
   /// No description provided for @savedPorts.
+  ///
+  /// In ja, this message translates to:
+  /// **'保存済みポート'**
   String get savedPorts;
 
   /// No description provided for @addPort.
+  ///
+  /// In ja, this message translates to:
+  /// **'ポートを追加'**
   String get addPort;
 
   /// No description provided for @portLabel.
+  ///
+  /// In ja, this message translates to:
+  /// **'ラベル'**
   String get portLabel;
 
   /// No description provided for @portNumber.
+  ///
+  /// In ja, this message translates to:
+  /// **'ポート番号'**
   String get portNumber;
 
   /// No description provided for @launcherTitle.
+  ///
+  /// In ja, this message translates to:
+  /// **'ランチャー'**
   String get launcherTitle;
 
   /// No description provided for @launcherAddCategory.
+  ///
+  /// In ja, this message translates to:
+  /// **'カテゴリを追加'**
   String get launcherAddCategory;
 
   /// No description provided for @launcherAddCommand.
+  ///
+  /// In ja, this message translates to:
+  /// **'コマンドを追加'**
   String get launcherAddCommand;
 
   /// No description provided for @launcherCategoryLabel.
+  ///
+  /// In ja, this message translates to:
+  /// **'カテゴリ名'**
   String get launcherCategoryLabel;
 
   /// No description provided for @launcherIcon.
+  ///
+  /// In ja, this message translates to:
+  /// **'アイコン（絵文字）'**
   String get launcherIcon;
 
   /// No description provided for @launcherCommandLabel.
+  ///
+  /// In ja, this message translates to:
+  /// **'ラベル'**
   String get launcherCommandLabel;
 
   /// No description provided for @launcherCommandHint.
+  ///
+  /// In ja, this message translates to:
+  /// **'コマンド'**
   String get launcherCommandHint;
 
   /// No description provided for @launcherEmptyCategories.
+  ///
+  /// In ja, this message translates to:
+  /// **'カテゴリがありません。＋をタップして追加してください。'**
   String get launcherEmptyCategories;
 
   /// No description provided for @launcherEmptyCommands.
+  ///
+  /// In ja, this message translates to:
+  /// **'コマンドがありません。'**
   String get launcherEmptyCommands;
 
   /// No description provided for @launcherRun.
+  ///
+  /// In ja, this message translates to:
+  /// **'実行'**
   String get launcherRun;
 
   /// No description provided for @launcherDeleteCategory.
+  ///
+  /// In ja, this message translates to:
+  /// **'カテゴリを削除'**
   String get launcherDeleteCategory;
 
   /// No description provided for @cicdTitle.
+  ///
+  /// In ja, this message translates to:
+  /// **'CI/CD'**
   String get cicdTitle;
 
   /// No description provided for @cicdNoRuns.
+  ///
+  /// In ja, this message translates to:
+  /// **'ワークフローの実行履歴がありません'**
   String get cicdNoRuns;
 
   /// No description provided for @cicdNoJobs.
+  ///
+  /// In ja, this message translates to:
+  /// **'ジョブが見つかりません'**
   String get cicdNoJobs;
 
   /// No description provided for @cicdRunning.
+  ///
+  /// In ja, this message translates to:
+  /// **'実行中'**
   String get cicdRunning;
 
+  /// No description provided for @branchesTitle.
+  ///
+  /// In ja, this message translates to:
+  /// **'ブランチ'**
   String get branchesTitle;
+
+  /// No description provided for @pullRequestsTitle.
+  ///
+  /// In ja, this message translates to:
+  /// **'プルリクエスト'**
   String get pullRequestsTitle;
+
+  /// No description provided for @branchNew.
+  ///
+  /// In ja, this message translates to:
+  /// **'新しいブランチ'**
   String get branchNew;
+
+  /// No description provided for @branchName.
+  ///
+  /// In ja, this message translates to:
+  /// **'ブランチ名'**
   String get branchName;
+
+  /// No description provided for @branchFrom.
+  ///
+  /// In ja, this message translates to:
+  /// **'元のブランチ'**
   String get branchFrom;
+
+  /// No description provided for @branchDelete.
+  ///
+  /// In ja, this message translates to:
+  /// **'ブランチを削除'**
   String get branchDelete;
+
+  /// No description provided for @branchDeleteConfirm.
+  ///
+  /// In ja, this message translates to:
+  /// **'このブランチを削除しますか？'**
   String get branchDeleteConfirm;
+
+  /// No description provided for @branchProtected.
+  ///
+  /// In ja, this message translates to:
+  /// **'保護済み'**
   String get branchProtected;
+
+  /// No description provided for @branchesEmpty.
+  ///
+  /// In ja, this message translates to:
+  /// **'ブランチがありません'**
   String get branchesEmpty;
+
+  /// No description provided for @prNew.
+  ///
+  /// In ja, this message translates to:
+  /// **'新しいプルリクエスト'**
   String get prNew;
+
+  /// No description provided for @prTitleLabel.
+  ///
+  /// In ja, this message translates to:
+  /// **'タイトル'**
   String get prTitleLabel;
+
+  /// No description provided for @prBodyLabel.
+  ///
+  /// In ja, this message translates to:
+  /// **'説明（任意）'**
   String get prBodyLabel;
+
+  /// No description provided for @prCreate.
+  ///
+  /// In ja, this message translates to:
+  /// **'作成'**
   String get prCreate;
+
+  /// No description provided for @prHead.
+  ///
+  /// In ja, this message translates to:
+  /// **'ヘッドブランチ'**
   String get prHead;
+
+  /// No description provided for @prBase.
+  ///
+  /// In ja, this message translates to:
+  /// **'ベースブランチ'**
   String get prBase;
+
+  /// No description provided for @prStateOpen.
+  ///
+  /// In ja, this message translates to:
+  /// **'オープン'**
   String get prStateOpen;
+
+  /// No description provided for @prStateClosed.
+  ///
+  /// In ja, this message translates to:
+  /// **'クローズ'**
   String get prStateClosed;
+
+  /// No description provided for @prEmpty.
+  ///
+  /// In ja, this message translates to:
+  /// **'プルリクエストがありません'**
   String get prEmpty;
 
+  /// No description provided for @apiTestTitle.
+  ///
+  /// In ja, this message translates to:
+  /// **'APIテスト'**
   String get apiTestTitle;
+
+  /// No description provided for @apiTestSend.
+  ///
+  /// In ja, this message translates to:
+  /// **'送信'**
   String get apiTestSend;
+
+  /// No description provided for @apiTestResponse.
+  ///
+  /// In ja, this message translates to:
+  /// **'レスポンス'**
   String get apiTestResponse;
+
+  /// No description provided for @apiTestBody.
+  ///
+  /// In ja, this message translates to:
+  /// **'ボディ'**
   String get apiTestBody;
+
+  /// No description provided for @apiTestHeaders.
+  ///
+  /// In ja, this message translates to:
+  /// **'ヘッダー'**
   String get apiTestHeaders;
+
+  /// No description provided for @apiTestAddHeader.
+  ///
+  /// In ja, this message translates to:
+  /// **'ヘッダーを追加'**
   String get apiTestAddHeader;
+
+  /// No description provided for @apiTestInsertApiKey.
+  ///
+  /// In ja, this message translates to:
+  /// **'APIキーを挿入'**
   String get apiTestInsertApiKey;
+
+  /// No description provided for @apiTestNoApiKeys.
+  ///
+  /// In ja, this message translates to:
+  /// **'APIキーが保存されていません'**
   String get apiTestNoApiKeys;
 
+  /// No description provided for @hostkeyUnknownTitle.
+  ///
+  /// In ja, this message translates to:
+  /// **'ホスト鍵の確認'**
+  String get hostkeyUnknownTitle;
+
+  /// No description provided for @hostkeyChangedTitle.
+  ///
+  /// In ja, this message translates to:
+  /// **'ホスト鍵が変更されています'**
+  String get hostkeyChangedTitle;
+
+  /// No description provided for @hostkeyUnknownBody.
+  ///
+  /// In ja, this message translates to:
+  /// **'{host} へは初めて接続します。表示されている指紋がサーバー管理者の提示した値と一致することを確認してください。'**
+  String hostkeyUnknownBody(String host);
+
+  /// No description provided for @hostkeyChangedBody.
+  ///
+  /// In ja, this message translates to:
+  /// **'{host} のホスト鍵が前回接続時と異なります。中間者攻撃を受けているか、サーバーが再構築された可能性があります。心当たりがない場合は接続しないでください。'**
+  String hostkeyChangedBody(String host);
+
+  /// No description provided for @hostkeyTypeLabel.
+  ///
+  /// In ja, this message translates to:
+  /// **'鍵種別'**
+  String get hostkeyTypeLabel;
+
+  /// No description provided for @hostkeyFingerprintLabel.
+  ///
+  /// In ja, this message translates to:
+  /// **'提示された指紋'**
+  String get hostkeyFingerprintLabel;
+
+  /// No description provided for @hostkeyKnownFingerprintLabel.
+  ///
+  /// In ja, this message translates to:
+  /// **'保存済みの指紋'**
+  String get hostkeyKnownFingerprintLabel;
+
+  /// No description provided for @hostkeyTrustButton.
+  ///
+  /// In ja, this message translates to:
+  /// **'信頼して接続'**
+  String get hostkeyTrustButton;
+
+  /// No description provided for @hostkeyRejectButton.
+  ///
+  /// In ja, this message translates to:
+  /// **'接続しない'**
+  String get hostkeyRejectButton;
+
+  /// No description provided for @additionalFeaturesSection.
+  ///
+  /// In ja, this message translates to:
+  /// **'追加機能'**
   String get additionalFeaturesSection;
+
+  /// No description provided for @featureSshTab.
+  ///
+  /// In ja, this message translates to:
+  /// **'SSHサーバータブ'**
   String get featureSshTab;
+
+  /// No description provided for @featureSshTabSubtitle.
+  ///
+  /// In ja, this message translates to:
+  /// **'カスタムSSHサーバーに接続'**
   String get featureSshTabSubtitle;
+
+  /// No description provided for @featureApiKeys.
+  ///
+  /// In ja, this message translates to:
+  /// **'APIキー & テスト'**
   String get featureApiKeys;
+
+  /// No description provided for @featureApiKeysSubtitle.
+  ///
+  /// In ja, this message translates to:
+  /// **'APIキーの管理とRESTテスト'**
   String get featureApiKeysSubtitle;
+
+  /// No description provided for @featureCicd.
+  ///
+  /// In ja, this message translates to:
+  /// **'CI/CD'**
   String get featureCicd;
+
+  /// No description provided for @featureCicdSubtitle.
+  ///
+  /// In ja, this message translates to:
+  /// **'GitHub Actionsのワークフローを表示'**
   String get featureCicdSubtitle;
+
+  /// No description provided for @featurePlugins.
+  ///
+  /// In ja, this message translates to:
+  /// **'プラグイン'**
   String get featurePlugins;
+
+  /// No description provided for @featurePluginsSubtitle.
+  ///
+  /// In ja, this message translates to:
+  /// **'コミュニティプラグインで機能を拡張'**
   String get featurePluginsSubtitle;
 }
 

@@ -82,6 +82,9 @@ class AppLocalizationsEn extends AppLocalizations {
       'Google account only.\nTokens are stored securely on your device.';
 
   @override
+  String get tryDemo => 'Try Demo (no account needed)';
+
+  @override
   String get onboardingWelcomeTitle => 'Welcome to\nkirikiri';
 
   @override
@@ -134,16 +137,23 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get startupStepPreparingKey => 'Preparing SSH key';
+
   @override
   String get startupStepCheckingState => 'Checking environment';
+
   @override
   String get startupStepStarting => 'Starting environment';
+
   @override
   String get startupStepWaitingRunning => 'Waiting for startup';
+
   @override
   String get startupStepRegisteringKey => 'Registering SSH key';
+
   @override
-  String startupElapsed(int seconds) => '${seconds}s elapsed';
+  String startupElapsed(int seconds) {
+    return '${seconds}s elapsed';
+  }
 
   @override
   String get cloudShellRunning => 'Cloud Shell Ready';
@@ -732,6 +742,37 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get apiTestNoApiKeys => 'No API keys saved';
+
+  @override
+  String get hostkeyUnknownTitle => 'Verify host key';
+
+  @override
+  String get hostkeyChangedTitle => 'Host key has changed';
+
+  @override
+  String hostkeyUnknownBody(String host) {
+    return 'This is the first connection to $host. Confirm that the fingerprint below matches the one published by the server administrator.';
+  }
+
+  @override
+  String hostkeyChangedBody(String host) {
+    return 'The host key for $host differs from the one saved earlier. This may mean a man-in-the-middle attack, or that the server was rebuilt. Do not connect unless you expected this change.';
+  }
+
+  @override
+  String get hostkeyTypeLabel => 'Key type';
+
+  @override
+  String get hostkeyFingerprintLabel => 'Offered fingerprint';
+
+  @override
+  String get hostkeyKnownFingerprintLabel => 'Saved fingerprint';
+
+  @override
+  String get hostkeyTrustButton => 'Trust and connect';
+
+  @override
+  String get hostkeyRejectButton => 'Don\'t connect';
 
   @override
   String get additionalFeaturesSection => 'Additional Features';

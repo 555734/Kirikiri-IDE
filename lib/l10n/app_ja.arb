@@ -308,6 +308,26 @@
   "apiTestInsertApiKey": "APIキーを挿入",
   "apiTestNoApiKeys": "APIキーが保存されていません",
 
+  "hostkeyUnknownTitle": "ホスト鍵の確認",
+  "hostkeyChangedTitle": "ホスト鍵が変更されています",
+  "hostkeyUnknownBody": "{host} へは初めて接続します。表示されている指紋がサーバー管理者の提示した値と一致することを確認してください。",
+  "@hostkeyUnknownBody": {
+    "placeholders": {
+      "host": {"type": "String"}
+    }
+  },
+  "hostkeyChangedBody": "{host} のホスト鍵が前回接続時と異なります。中間者攻撃を受けているか、サーバーが再構築された可能性があります。心当たりがない場合は接続しないでください。",
+  "@hostkeyChangedBody": {
+    "placeholders": {
+      "host": {"type": "String"}
+    }
+  },
+  "hostkeyTypeLabel": "鍵種別",
+  "hostkeyFingerprintLabel": "提示された指紋",
+  "hostkeyKnownFingerprintLabel": "保存済みの指紋",
+  "hostkeyTrustButton": "信頼して接続",
+  "hostkeyRejectButton": "接続しない",
+
   "additionalFeaturesSection": "追加機能",
   "featureSshTab": "SSHサーバータブ",
   "featureSshTabSubtitle": "カスタムSSHサーバーに接続",

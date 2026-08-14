@@ -8,6 +8,7 @@ import 'package:provider/provider.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:xterm/xterm.dart' hide TerminalController;
 
+import '../../core/known_hosts_service.dart';
 import '../../core/secure_storage_service.dart';
 import '../../core/theme_service.dart';
 import '../../theme/app_theme.dart';
@@ -72,7 +73,11 @@ class _TerminalScreenState extends State<TerminalScreen>
     super.initState();
     WidgetsBinding.instance.addObserver(this);
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      context.read<TerminalController>().connect();
+      final controller = context.read<TerminalController>();
+      // ホスト鍵の確認ダイアログを接続前に登録する。未登録のまま接続すると
+      // 未知のホスト鍵はすべて拒否される（SshService のフェイルセーフ）。
+      controller.onHostkeyPrompt = _confirmHostkey;
+      controller.connect();
       _loadFloatingCmds();
       _loadPanelPosition();
     });
@@ -748,6 +753,117 @@ class _TerminalScreenState extends State<TerminalScreen>
           ),
         ),
       ),
+    );
+  }
+
+  // ── ホスト鍵確認ダイアログ ────────────────────────────────
+
+  /// 未知・変更されたホスト鍵をユーザーに提示し、受け入れ可否を返す。
+  /// ダイアログを閉じられた場合は拒否として扱う。
+  Future<bool> _confirmHostkey(HostkeyRequest request) async {
+    if (!mounted) return false;
+    final changed = request.verdict == HostkeyVerdict.changed;
+    final accepted = await showDialog<bool>(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) {
+        final l = AppLocalizations.of(ctx)!;
+        return AlertDialog(
+          backgroundColor: AppColors.surface,
+          title: Row(
+            children: [
+              Icon(
+                changed
+                    ? Icons.gpp_maybe_rounded
+                    : Icons.vpn_key_rounded,
+                color: changed ? AppColors.error : AppColors.primary,
+                size: 20,
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  changed ? l.hostkeyChangedTitle : l.hostkeyUnknownTitle,
+                  style: const TextStyle(
+                      color: AppColors.textPrimary, fontSize: 15),
+                ),
+              ),
+            ],
+          ),
+          content: SingleChildScrollView(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  changed
+                      ? l.hostkeyChangedBody(request.hostLabel)
+                      : l.hostkeyUnknownBody(request.hostLabel),
+                  style: const TextStyle(
+                      color: AppColors.textSecondary, fontSize: 13),
+                ),
+                const SizedBox(height: 16),
+                _hostkeyField(l.hostkeyTypeLabel, request.keyType),
+                const SizedBox(height: 8),
+                _hostkeyField(
+                    l.hostkeyFingerprintLabel, request.fingerprint),
+                if (request.knownFingerprint != null) ...[
+                  const SizedBox(height: 8),
+                  _hostkeyField(l.hostkeyKnownFingerprintLabel,
+                      request.knownFingerprint!),
+                ],
+              ],
+            ),
+          ),
+          // 鍵が変更されている場合は「信頼する」を目立たせず、
+          // 安全側の選択肢（接続しない）を強調する
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx, true),
+              child: Text(
+                l.hostkeyTrustButton,
+                style: TextStyle(
+                  color:
+                      changed ? AppColors.textMuted : AppColors.primary,
+                ),
+              ),
+            ),
+            TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: Text(
+                l.hostkeyRejectButton,
+                style: TextStyle(
+                  color: changed
+                      ? AppColors.primary
+                      : AppColors.textSecondary,
+                  fontWeight:
+                      changed ? FontWeight.w600 : FontWeight.normal,
+                ),
+              ),
+            ),
+          ],
+        );
+      },
+    );
+    return accepted ?? false;
+  }
+
+  Widget _hostkeyField(String label, String value) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(label,
+            style: const TextStyle(
+                color: AppColors.textMuted, fontSize: 11)),
+        const SizedBox(height: 2),
+        SelectableText(
+          value,
+          style: const TextStyle(
+            color: AppColors.textPrimary,
+            fontSize: 12,
+            fontFamily: 'monospace',
+          ),
+        ),
+      ],
     );
   }
 

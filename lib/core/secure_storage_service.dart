@@ -216,6 +216,15 @@ class SecureStorageService {
     await _storage.delete(key: 'cloudshell_credentials_v1');
   }
 
+  // ── SSH known_hosts（信頼済みホスト鍵の指紋） ────────────────
+  Future<String?> getKnownHosts() async {
+    return _storage.read(key: 'ssh_known_hosts_v1');
+  }
+
+  Future<void> saveKnownHosts(String json) async {
+    await _storage.write(key: 'ssh_known_hosts_v1', value: json);
+  }
+
   // ── 機能フラグ ──────────────────────────────────────────────
   Future<String?> getFeatureFlags() async {
     return _storage.read(key: 'feature_flags_v1');

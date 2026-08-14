@@ -4,6 +4,7 @@ import 'dart:typed_data';
 import 'package:dartssh2/dartssh2.dart';
 
 import '../../core/constants.dart';
+import '../../core/known_hosts_service.dart';
 
 enum SshConnectionState { disconnected, connecting, connected, error }
 
@@ -26,8 +27,17 @@ class SshService {
   final String? sshUsername;
   final int? sshPort;
 
+  /// 未知・変更されたホスト鍵をユーザーに確認するためのコールバック。
+  ///
+  /// UI 層（TerminalScreen）が接続前に設定する。未設定の場合、保存済みの
+  /// 指紋と一致しないホスト鍵はすべて拒否される（フェイルセーフ）。
+  HostkeyPromptHandler? onHostkeyPrompt;
+
   SSHClient? _client;
   SSHSession? _session;
+
+  /// ホスト鍵検証で接続を拒否した理由。connect() のエラー整形に使う。
+  String? _hostkeyRejection;
 
   final _stateController = StreamController<SshConnectionState>.broadcast();
   final _outputController = StreamController<String>.broadcast();
@@ -52,17 +62,78 @@ class SshService {
   int _termCols = AppConstants.terminalInitialCols;
   int _termRows = AppConstants.terminalInitialRows;
 
+  int _resolvedPort = AppConstants.sshPort;
+
+  /// サーバーのホスト鍵を known_hosts と照合する。
+  ///
+  /// dartssh2 は onVerifyHostKey を渡さないとホスト鍵を無検証で受け入れるため、
+  /// このハンドラを必ず指定すること。
+  Future<bool> _verifyHostkey(String keyType, Uint8List digest) async {
+    final fingerprint = KnownHostsService.formatFingerprint(digest);
+    final knownHosts = KnownHostsService.instance;
+    final verdict = await knownHosts.verify(
+      sshHost,
+      _resolvedPort,
+      keyType,
+      fingerprint,
+    );
+
+    if (verdict == HostkeyVerdict.trusted) {
+      _addLog('ホスト鍵: 既知の鍵と一致 ($keyType $fingerprint)');
+      return true;
+    }
+
+    final prompt = onHostkeyPrompt;
+    if (prompt == null) {
+      // 確認手段がないまま未知の鍵を受け入れると中間者攻撃を検出できない
+      _addLog('ホスト鍵: 未確認のため拒否 ($keyType $fingerprint)');
+      _hostkeyRejection = 'サーバーのホスト鍵を確認できなかったため接続を中止しました。';
+      return false;
+    }
+
+    final known = verdict == HostkeyVerdict.changed
+        ? await knownHosts.fingerprintOf(sshHost, _resolvedPort, keyType)
+        : null;
+    _addLog(
+      'ホスト鍵: ${verdict == HostkeyVerdict.changed ? "変更を検出" : "未登録"} '
+      '($keyType $fingerprint)',
+    );
+
+    final accepted = await prompt(HostkeyRequest(
+      host: sshHost,
+      port: _resolvedPort,
+      keyType: keyType,
+      fingerprint: fingerprint,
+      verdict: verdict,
+      knownFingerprint: known,
+    ));
+
+    if (!accepted) {
+      _addLog('ホスト鍵: ユーザーが拒否');
+      _hostkeyRejection = verdict == HostkeyVerdict.changed
+          ? 'サーバーのホスト鍵が変更されています。中間者攻撃の可能性があるため接続を中止しました。'
+          : 'ホスト鍵が承認されなかったため接続を中止しました。';
+      return false;
+    }
+
+    await knownHosts.trust(sshHost, _resolvedPort, keyType, fingerprint);
+    _addLog('ホスト鍵: ユーザーが承認し保存しました');
+    return true;
+  }
+
   Future<void> connect({int cols = 80, int rows = 24}) async {
     if (_state == SshConnectionState.connecting ||
         _state == SshConnectionState.connected) return;
 
     _log.clear();
+    _hostkeyRejection = null;
     _termCols = cols;
     _termRows = rows;
     _setState(SshConnectionState.connecting);
 
     try {
       final port = sshPort ?? AppConstants.sshPort;
+      _resolvedPort = port;
       final username = sshUsername ?? workspaceId;
 
       _addLog('接続先: $sshHost:$port');
@@ -87,6 +158,7 @@ class SshService {
           username: username,
           identities: keyPairs,
           keepAliveInterval: AppConstants.sshKeepalive,
+          onVerifyHostKey: _verifyHostkey,
         );
       } else {
         // パスワード認証
@@ -96,6 +168,7 @@ class SshService {
           username: username,
           onPasswordRequest: () => ownerToken ?? '',
           keepAliveInterval: AppConstants.sshKeepalive,
+          onVerifyHostKey: _verifyHostkey,
         );
       }
 
@@ -114,15 +187,19 @@ class SshService {
 
       _setState(SshConnectionState.connected);
       _listenToSession();
+    } on SSHHostkeyError catch (e) {
+      _addLog('ホスト鍵エラー: $e');
+      _handleError(_hostkeyRejection ?? 'ホスト鍵の検証に失敗しました: $e');
     } on SSHAuthAbortError catch (e) {
       _addLog('認証エラー(Abort): $e');
-      _handleError('SSH認証に失敗しました: $e');
+      // ホスト鍵を拒否すると接続が閉じられ、認証中断として観測されることがある
+      _handleError(_hostkeyRejection ?? 'SSH認証に失敗しました: $e');
     } on SSHAuthFailError catch (e) {
       _addLog('認証エラー(Fail): $e');
-      _handleError('SSH認証が拒否されました: $e');
+      _handleError(_hostkeyRejection ?? 'SSH認証が拒否されました: $e');
     } catch (e) {
       _addLog('例外: $e');
-      _handleError('接続エラー: $e');
+      _handleError(_hostkeyRejection ?? '接続エラー: $e');
     }
   }
 
