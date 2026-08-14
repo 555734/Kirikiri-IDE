@@ -6,6 +6,7 @@ import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import 'package:path_provider/path_provider.dart';
 
+import '../../core/constants.dart';
 import '../../core/secure_storage_service.dart';
 import 'loaded_plugin.dart';
 import 'plugin_manifest.dart';
@@ -111,7 +112,7 @@ class PluginService extends ChangeNotifier {
       final response = await http.get(
         Uri.parse(zipUrl),
         headers: {'Accept': 'application/vnd.github+json'},
-      );
+      ).timeout(AppConstants.httpDownloadTimeout);
       if (response.statusCode != 200) {
         throw Exception('ダウンロード失敗 (HTTP ${response.statusCode})');
       }
@@ -157,7 +158,10 @@ class PluginService extends ChangeNotifier {
             ? file.name.substring(topLevel.length + 1)
             : file.name;
         if (stripped.isEmpty) continue;
-        final outFile = File('${targetDir.path}/$stripped');
+
+        // Zip Slip 対策: 展開先がプラグインディレクトリ配下に収まることを
+        // 必ず確認する（'../' を含むエントリで任意のパスへ書き込ませない）
+        final outFile = File(_safeJoin(targetDir, stripped));
         await outFile.parent.create(recursive: true);
         await outFile.writeAsBytes(file.content as List<int>);
       }
@@ -219,18 +223,23 @@ class PluginService extends ChangeNotifier {
     final q = [
       'topic:kirikiri-plugin',
       if (query.trim().isNotEmpty) query.trim(),
-    ].join('+');
+    ].join(' ');
 
-    final uri = Uri.parse(
-      'https://api.github.com/search/repositories'
-      '?q=$q&sort=$sort&order=desc&per_page=30',
-    );
+    // クエリは Uri のクエリパラメータとして渡す。文字列連結だと空白や
+    // & を含む検索語で URL が壊れる。
+    final uri = Uri.https('api.github.com', '/search/repositories', {
+      'q': q,
+      'sort': sort,
+      'order': 'desc',
+      'per_page': '30',
+    });
     final headers = <String, String>{
       'Accept': 'application/vnd.github+json',
       if (pat != null && pat.isNotEmpty) 'Authorization': 'Bearer $pat',
     };
 
-    final res = await http.get(uri, headers: headers);
+    final res =
+        await http.get(uri, headers: headers).timeout(AppConstants.httpTimeout);
     if (res.statusCode != 200) {
       throw Exception('GitHub検索エラー (${res.statusCode})');
     }
@@ -263,6 +272,40 @@ class PluginService extends ChangeNotifier {
   }
 
   // ── ユーティリティ ─────────────────────────────────
+
+  /// [entryName] を [targetDir] 配下の絶対パスに解決する。
+  /// 解決結果が [targetDir] の外へ出る場合は例外を投げる。
+  @visibleForTesting
+  static String safeJoin(Directory targetDir, String entryName) =>
+      _safeJoin(targetDir, entryName);
+
+  static String _safeJoin(Directory targetDir, String entryName) {
+    final base = _normalize(targetDir.path);
+    final resolved = _normalize('$base/$entryName');
+    if (resolved != base && !resolved.startsWith('$base/')) {
+      throw Exception('不正なパスを含むプラグインです: $entryName');
+    }
+    return resolved;
+  }
+
+  /// '.' と '..' を解決してパスを正規化する（絶対パス前提）。
+  static String _normalize(String path) {
+    final isAbsolute = path.startsWith('/');
+    final parts = <String>[];
+    for (final segment in path.split('/')) {
+      if (segment.isEmpty || segment == '.') continue;
+      if (segment == '..') {
+        if (parts.isNotEmpty && parts.last != '..') {
+          parts.removeLast();
+        } else if (!isAbsolute) {
+          parts.add('..');
+        }
+        continue;
+      }
+      parts.add(segment);
+    }
+    return (isAbsolute ? '/' : '') + parts.join('/');
+  }
 
   static String _toZipUrl(String repoUrl) {
     // https://github.com/owner/repo  →  https://api.github.com/repos/owner/repo/zipball
