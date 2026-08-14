@@ -1496,6 +1496,222 @@ abstract class AppLocalizations {
   /// **'APIキーが保存されていません'**
   String get apiTestNoApiKeys;
 
+  /// No description provided for @githubErrorInvalidToken.
+  ///
+  /// In ja, this message translates to:
+  /// **'トークンが無効です。repo スコープ付きの PAT を入力してください。'**
+  String get githubErrorInvalidToken;
+
+  /// No description provided for @pluginErrorDownloadFailed.
+  ///
+  /// In ja, this message translates to:
+  /// **'プラグインのダウンロードに失敗しました。'**
+  String get pluginErrorDownloadFailed;
+
+  /// No description provided for @pluginErrorManifestMissing.
+  ///
+  /// In ja, this message translates to:
+  /// **'plugin.json が見つかりません。'**
+  String get pluginErrorManifestMissing;
+
+  /// No description provided for @pluginErrorUnsafePath.
+  ///
+  /// In ja, this message translates to:
+  /// **'不正なパスを含むプラグインのためインストールを中止しました。'**
+  String get pluginErrorUnsafePath;
+
+  /// No description provided for @pluginErrorInvalidRepoUrl.
+  ///
+  /// In ja, this message translates to:
+  /// **'GitHub リポジトリの URL を入力してください。'**
+  String get pluginErrorInvalidRepoUrl;
+
+  /// No description provided for @pluginErrorUnknown.
+  ///
+  /// In ja, this message translates to:
+  /// **'プラグインのインストールに失敗しました。'**
+  String get pluginErrorUnknown;
+
+  /// No description provided for @cloudShellErrorNotSignedIn.
+  ///
+  /// In ja, this message translates to:
+  /// **'未ログインです。再度Googleログインしてください。'**
+  String get cloudShellErrorNotSignedIn;
+
+  /// No description provided for @cloudShellErrorAuthExpired.
+  ///
+  /// In ja, this message translates to:
+  /// **'認証の有効期限が切れました。再度Googleログインしてください。'**
+  String get cloudShellErrorAuthExpired;
+
+  /// No description provided for @cloudShellErrorStartTimeout.
+  ///
+  /// In ja, this message translates to:
+  /// **'Cloud Shell の起動がタイムアウトしました（約80秒）。'**
+  String get cloudShellErrorStartTimeout;
+
+  /// No description provided for @cloudShellErrorUnknown.
+  ///
+  /// In ja, this message translates to:
+  /// **'Cloud Shell の起動に失敗しました。'**
+  String get cloudShellErrorUnknown;
+
+  /// No description provided for @authErrorCancelled.
+  ///
+  /// In ja, this message translates to:
+  /// **'ログインがキャンセルされました'**
+  String get authErrorCancelled;
+
+  /// No description provided for @authErrorTokenUnavailable.
+  ///
+  /// In ja, this message translates to:
+  /// **'アクセストークンの取得に失敗しました'**
+  String get authErrorTokenUnavailable;
+
+  /// No description provided for @authErrorSignInFailed.
+  ///
+  /// In ja, this message translates to:
+  /// **'Googleログインに失敗しました'**
+  String get authErrorSignInFailed;
+
+  /// No description provided for @webPreviewTitle.
+  ///
+  /// In ja, this message translates to:
+  /// **'Webプレビュー'**
+  String get webPreviewTitle;
+
+  /// No description provided for @webPreviewBack.
+  ///
+  /// In ja, this message translates to:
+  /// **'戻る'**
+  String get webPreviewBack;
+
+  /// No description provided for @webPreviewForward.
+  ///
+  /// In ja, this message translates to:
+  /// **'進む'**
+  String get webPreviewForward;
+
+  /// No description provided for @webPreviewReload.
+  ///
+  /// In ja, this message translates to:
+  /// **'リロード'**
+  String get webPreviewReload;
+
+  /// No description provided for @webPreviewOpenInBrowser.
+  ///
+  /// In ja, this message translates to:
+  /// **'ブラウザで開く'**
+  String get webPreviewOpenInBrowser;
+
+  /// No description provided for @webPreviewUrlCopied.
+  ///
+  /// In ja, this message translates to:
+  /// **'URLをコピーしました'**
+  String get webPreviewUrlCopied;
+
+  /// No description provided for @connectionStateConnected.
+  ///
+  /// In ja, this message translates to:
+  /// **'接続済み'**
+  String get connectionStateConnected;
+
+  /// No description provided for @connectionStateConnecting.
+  ///
+  /// In ja, this message translates to:
+  /// **'接続中'**
+  String get connectionStateConnecting;
+
+  /// No description provided for @connectionStateError.
+  ///
+  /// In ja, this message translates to:
+  /// **'エラー'**
+  String get connectionStateError;
+
+  /// No description provided for @connectionStateDisconnected.
+  ///
+  /// In ja, this message translates to:
+  /// **'切断'**
+  String get connectionStateDisconnected;
+
+  /// No description provided for @hideUi.
+  ///
+  /// In ja, this message translates to:
+  /// **'非表示'**
+  String get hideUi;
+
+  /// No description provided for @launcherDeleteCategoryConfirm.
+  ///
+  /// In ja, this message translates to:
+  /// **'を削除しますか？'**
+  String get launcherDeleteCategoryConfirm;
+
+  /// No description provided for @sshAuthPrivateKeyLabel.
+  ///
+  /// In ja, this message translates to:
+  /// **'秘密鍵認証'**
+  String get sshAuthPrivateKeyLabel;
+
+  /// No description provided for @sshAuthPasswordLabel.
+  ///
+  /// In ja, this message translates to:
+  /// **'パスワード認証'**
+  String get sshAuthPasswordLabel;
+
+  /// No description provided for @commandSend.
+  ///
+  /// In ja, this message translates to:
+  /// **'送信 (Enter)'**
+  String get commandSend;
+
+  /// No description provided for @sshReconnecting.
+  ///
+  /// In ja, this message translates to:
+  /// **'再接続中...'**
+  String get sshReconnecting;
+
+  /// No description provided for @sshErrorHostkeyUnconfirmed.
+  ///
+  /// In ja, this message translates to:
+  /// **'サーバーのホスト鍵を確認できなかったため接続を中止しました。'**
+  String get sshErrorHostkeyUnconfirmed;
+
+  /// No description provided for @sshErrorHostkeyChanged.
+  ///
+  /// In ja, this message translates to:
+  /// **'サーバーのホスト鍵が変更されています。中間者攻撃の可能性があるため接続を中止しました。'**
+  String get sshErrorHostkeyChanged;
+
+  /// No description provided for @sshErrorHostkeyRejected.
+  ///
+  /// In ja, this message translates to:
+  /// **'ホスト鍵が承認されなかったため接続を中止しました。'**
+  String get sshErrorHostkeyRejected;
+
+  /// No description provided for @sshErrorHostkeyInvalid.
+  ///
+  /// In ja, this message translates to:
+  /// **'ホスト鍵の検証に失敗しました。'**
+  String get sshErrorHostkeyInvalid;
+
+  /// No description provided for @sshErrorAuthFailed.
+  ///
+  /// In ja, this message translates to:
+  /// **'SSH認証に失敗しました。'**
+  String get sshErrorAuthFailed;
+
+  /// No description provided for @sshErrorAuthRejected.
+  ///
+  /// In ja, this message translates to:
+  /// **'SSH認証が拒否されました。'**
+  String get sshErrorAuthRejected;
+
+  /// No description provided for @sshErrorConnectionFailed.
+  ///
+  /// In ja, this message translates to:
+  /// **'接続エラーが発生しました。'**
+  String get sshErrorConnectionFailed;
+
   /// No description provided for @hostkeyUnknownTitle.
   ///
   /// In ja, this message translates to:

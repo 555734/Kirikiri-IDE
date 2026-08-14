@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:kirikiri/l10n/app_localizations.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:webview_flutter/webview_flutter.dart';
 
@@ -90,32 +91,33 @@ class _WebPreviewScreenState extends State<WebPreviewScreen> {
   }
 
   PreferredSizeWidget _buildAppBar() {
+    final l = AppLocalizations.of(context)!;
     return AppBar(
       backgroundColor: AppColors.surface,
-      title: const Text('Webプレビュー'),
+      title: Text(l.webPreviewTitle),
       actions: [
         // 戻る
         IconButton(
           icon: const Icon(Icons.arrow_back_ios_rounded, size: 18),
-          tooltip: '戻る',
+          tooltip: l.webPreviewBack,
           onPressed: _canGoBack ? () => _webCtrl.goBack() : null,
         ),
         // 進む
         IconButton(
           icon: const Icon(Icons.arrow_forward_ios_rounded, size: 18),
-          tooltip: '進む',
+          tooltip: l.webPreviewForward,
           onPressed: _canGoForward ? () => _webCtrl.goForward() : null,
         ),
         // リロード
         IconButton(
           icon: const Icon(Icons.refresh_rounded),
-          tooltip: 'リロード',
+          tooltip: l.webPreviewReload,
           onPressed: () => _webCtrl.reload(),
         ),
         // 外部ブラウザで開く
         IconButton(
           icon: const Icon(Icons.open_in_browser_rounded),
-          tooltip: 'ブラウザで開く',
+          tooltip: l.webPreviewOpenInBrowser,
           onPressed: () => launchUrl(
             Uri.parse(_currentUrl),
             mode: LaunchMode.externalApplication,
@@ -188,9 +190,9 @@ class _UrlBar extends StatelessWidget {
   void _copyUrl(BuildContext context) {
     Clipboard.setData(ClipboardData(text: url));
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('URLをコピーしました'),
-        duration: Duration(seconds: 1),
+      SnackBar(
+        content: Text(AppLocalizations.of(context)!.webPreviewUrlCopied),
+        duration: const Duration(seconds: 1),
       ),
     );
   }

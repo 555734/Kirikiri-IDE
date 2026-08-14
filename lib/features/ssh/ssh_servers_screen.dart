@@ -135,6 +135,7 @@ class _ConnectionCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context)!;
     return Card(
       child: InkWell(
         borderRadius: BorderRadius.circular(12),
@@ -176,7 +177,7 @@ class _ConnectionCard extends StatelessWidget {
                   ],
                 ),
               ),
-              _authBadge(),
+              _authBadge(l),
               const SizedBox(width: 4),
               PopupMenuButton<_Action>(
                 icon: const Icon(Icons.more_vert_rounded,
@@ -224,10 +225,10 @@ class _ConnectionCard extends StatelessWidget {
     );
   }
 
-  Widget _authBadge() {
+  Widget _authBadge(AppLocalizations l) {
     final isKey = conn.authType == SshAuthType.privateKey;
     return Tooltip(
-      message: isKey ? '秘密鍵認証' : 'パスワード認証',
+      message: isKey ? l.sshAuthPrivateKeyLabel : l.sshAuthPasswordLabel,
       child: Icon(
         isKey ? Icons.key_rounded : Icons.password_rounded,
         size: 16,

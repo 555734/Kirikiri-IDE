@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:kirikiri/l10n/app_localizations.dart';
 import 'package:provider/provider.dart';
 
+import '../../core/failure_messages.dart';
 import '../../theme/app_theme.dart';
 import 'plugin_service.dart';
 
@@ -67,7 +68,10 @@ class _PluginStoreScreenState extends State<PluginStoreScreen> {
           );
         } else {
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text(AppLocalizations.of(context)!.pluginInstallError(err))),
+            SnackBar(
+              content: Text(AppLocalizations.of(context)!.pluginInstallError(
+                  pluginFailureMessage(AppLocalizations.of(context)!, err))),
+            ),
           );
         }
       }

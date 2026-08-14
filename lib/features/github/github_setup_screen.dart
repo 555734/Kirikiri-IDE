@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:kirikiri/l10n/app_localizations.dart';
 import 'package:provider/provider.dart';
 
+import '../../core/failure_messages.dart';
 import '../../theme/app_theme.dart';
 import '../preview/web_preview_screen.dart';
 import 'github_service.dart';
@@ -64,7 +65,9 @@ class _GitHubSetupScreenState extends State<GitHubSetupScreen> {
               ),
               if (github.error != null) ...[
                 const SizedBox(height: 12),
-                Text(github.error!,
+                Text(
+                    gitHubFailureMessage(
+                        AppLocalizations.of(context)!, github.error!),
                     style: const TextStyle(
                         color: AppColors.errorLight, fontSize: 13)),
               ],

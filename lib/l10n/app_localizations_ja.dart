@@ -740,6 +740,115 @@ class AppLocalizationsJa extends AppLocalizations {
   String get apiTestNoApiKeys => 'APIキーが保存されていません';
 
   @override
+  String get githubErrorInvalidToken => 'トークンが無効です。repo スコープ付きの PAT を入力してください。';
+
+  @override
+  String get pluginErrorDownloadFailed => 'プラグインのダウンロードに失敗しました。';
+
+  @override
+  String get pluginErrorManifestMissing => 'plugin.json が見つかりません。';
+
+  @override
+  String get pluginErrorUnsafePath => '不正なパスを含むプラグインのためインストールを中止しました。';
+
+  @override
+  String get pluginErrorInvalidRepoUrl => 'GitHub リポジトリの URL を入力してください。';
+
+  @override
+  String get pluginErrorUnknown => 'プラグインのインストールに失敗しました。';
+
+  @override
+  String get cloudShellErrorNotSignedIn => '未ログインです。再度Googleログインしてください。';
+
+  @override
+  String get cloudShellErrorAuthExpired => '認証の有効期限が切れました。再度Googleログインしてください。';
+
+  @override
+  String get cloudShellErrorStartTimeout => 'Cloud Shell の起動がタイムアウトしました（約80秒）。';
+
+  @override
+  String get cloudShellErrorUnknown => 'Cloud Shell の起動に失敗しました。';
+
+  @override
+  String get authErrorCancelled => 'ログインがキャンセルされました';
+
+  @override
+  String get authErrorTokenUnavailable => 'アクセストークンの取得に失敗しました';
+
+  @override
+  String get authErrorSignInFailed => 'Googleログインに失敗しました';
+
+  @override
+  String get webPreviewTitle => 'Webプレビュー';
+
+  @override
+  String get webPreviewBack => '戻る';
+
+  @override
+  String get webPreviewForward => '進む';
+
+  @override
+  String get webPreviewReload => 'リロード';
+
+  @override
+  String get webPreviewOpenInBrowser => 'ブラウザで開く';
+
+  @override
+  String get webPreviewUrlCopied => 'URLをコピーしました';
+
+  @override
+  String get connectionStateConnected => '接続済み';
+
+  @override
+  String get connectionStateConnecting => '接続中';
+
+  @override
+  String get connectionStateError => 'エラー';
+
+  @override
+  String get connectionStateDisconnected => '切断';
+
+  @override
+  String get hideUi => '非表示';
+
+  @override
+  String get launcherDeleteCategoryConfirm => 'を削除しますか？';
+
+  @override
+  String get sshAuthPrivateKeyLabel => '秘密鍵認証';
+
+  @override
+  String get sshAuthPasswordLabel => 'パスワード認証';
+
+  @override
+  String get commandSend => '送信 (Enter)';
+
+  @override
+  String get sshReconnecting => '再接続中...';
+
+  @override
+  String get sshErrorHostkeyUnconfirmed => 'サーバーのホスト鍵を確認できなかったため接続を中止しました。';
+
+  @override
+  String get sshErrorHostkeyChanged =>
+      'サーバーのホスト鍵が変更されています。中間者攻撃の可能性があるため接続を中止しました。';
+
+  @override
+  String get sshErrorHostkeyRejected => 'ホスト鍵が承認されなかったため接続を中止しました。';
+
+  @override
+  String get sshErrorHostkeyInvalid => 'ホスト鍵の検証に失敗しました。';
+
+  @override
+  String get sshErrorAuthFailed => 'SSH認証に失敗しました。';
+
+  @override
+  String get sshErrorAuthRejected => 'SSH認証が拒否されました。';
+
+  @override
+  String get sshErrorConnectionFailed => '接続エラーが発生しました。';
+
+  @override
   String get hostkeyUnknownTitle => 'ホスト鍵の確認';
 
   @override

@@ -8,6 +8,33 @@ import '../../core/known_hosts_service.dart';
 
 enum SshConnectionState { disconnected, connecting, connected, error }
 
+/// 接続失敗の種別。表示文言は UI 層（ロケール）が決める。
+enum SshFailureKind {
+  /// 確認手段がなくホスト鍵を検証できなかった
+  hostkeyUnconfirmed,
+
+  /// 保存済みと異なるホスト鍵が提示され、ユーザーが拒否した
+  hostkeyChanged,
+
+  /// 未知のホスト鍵をユーザーが承認しなかった
+  hostkeyRejected,
+
+  /// ホスト鍵の検証自体に失敗した（署名不一致など）
+  hostkeyInvalid,
+
+  authFailed,
+  authRejected,
+  connectionFailed,
+}
+
+/// SSH 接続の失敗。[detail] は原因の技術的な詳細（翻訳しない）。
+class SshFailure {
+  const SshFailure(this.kind, {this.detail});
+
+  final SshFailureKind kind;
+  final String? detail;
+}
+
 /// dartssh2 を使って SSH 接続するサービス
 /// パスワード認証とSSH鍵認証の両方に対応
 class SshService {
@@ -37,15 +64,15 @@ class SshService {
   SSHSession? _session;
 
   /// ホスト鍵検証で接続を拒否した理由。connect() のエラー整形に使う。
-  String? _hostkeyRejection;
+  SshFailureKind? _hostkeyRejection;
 
   final _stateController = StreamController<SshConnectionState>.broadcast();
   final _outputController = StreamController<String>.broadcast();
-  final _errorMessageController = StreamController<String>.broadcast();
+  final _errorMessageController = StreamController<SshFailure>.broadcast();
 
   Stream<SshConnectionState> get stateStream => _stateController.stream;
   Stream<String> get outputStream => _outputController.stream;
-  Stream<String> get errorStream => _errorMessageController.stream;
+  Stream<SshFailure> get errorStream => _errorMessageController.stream;
 
   SshConnectionState _state = SshConnectionState.disconnected;
   SshConnectionState get state => _state;
@@ -87,7 +114,7 @@ class SshService {
     if (prompt == null) {
       // 確認手段がないまま未知の鍵を受け入れると中間者攻撃を検出できない
       _addLog('ホスト鍵: 未確認のため拒否 ($keyType $fingerprint)');
-      _hostkeyRejection = 'サーバーのホスト鍵を確認できなかったため接続を中止しました。';
+      _hostkeyRejection = SshFailureKind.hostkeyUnconfirmed;
       return false;
     }
 
@@ -111,8 +138,8 @@ class SshService {
     if (!accepted) {
       _addLog('ホスト鍵: ユーザーが拒否');
       _hostkeyRejection = verdict == HostkeyVerdict.changed
-          ? 'サーバーのホスト鍵が変更されています。中間者攻撃の可能性があるため接続を中止しました。'
-          : 'ホスト鍵が承認されなかったため接続を中止しました。';
+          ? SshFailureKind.hostkeyChanged
+          : SshFailureKind.hostkeyRejected;
       return false;
     }
 
@@ -189,17 +216,17 @@ class SshService {
       _listenToSession();
     } on SSHHostkeyError catch (e) {
       _addLog('ホスト鍵エラー: $e');
-      _handleError(_hostkeyRejection ?? 'ホスト鍵の検証に失敗しました: $e');
+      _fail(SshFailureKind.hostkeyInvalid, e);
     } on SSHAuthAbortError catch (e) {
       _addLog('認証エラー(Abort): $e');
       // ホスト鍵を拒否すると接続が閉じられ、認証中断として観測されることがある
-      _handleError(_hostkeyRejection ?? 'SSH認証に失敗しました: $e');
+      _fail(SshFailureKind.authFailed, e);
     } on SSHAuthFailError catch (e) {
       _addLog('認証エラー(Fail): $e');
-      _handleError(_hostkeyRejection ?? 'SSH認証が拒否されました: $e');
+      _fail(SshFailureKind.authRejected, e);
     } catch (e) {
       _addLog('例外: $e');
-      _handleError(_hostkeyRejection ?? '接続エラー: $e');
+      _fail(SshFailureKind.connectionFailed, e);
     }
   }
 
@@ -263,13 +290,22 @@ class SshService {
     if (!_stateController.isClosed) _stateController.add(newState);
   }
 
-  void _handleError(String message) {
+  /// ホスト鍵を拒否した場合はその理由を優先し、詳細は伏せる
+  /// （拒否理由は技術的な例外テキストより具体的なため）。
+  void _fail(SshFailureKind fallbackKind, Object error) {
+    final rejection = _hostkeyRejection;
+    _handleError(rejection != null
+        ? SshFailure(rejection)
+        : SshFailure(fallbackKind, detail: error.toString()));
+  }
+
+  void _handleError(SshFailure failure) {
     _state = SshConnectionState.error;
     if (!_stateController.isClosed) {
       _stateController.add(SshConnectionState.error);
     }
     if (!_errorMessageController.isClosed) {
-      _errorMessageController.add(message);
+      _errorMessageController.add(failure);
     }
   }
 

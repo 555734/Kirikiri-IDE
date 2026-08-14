@@ -77,6 +77,7 @@ class _TerminalScreenState extends State<TerminalScreen>
       // ホスト鍵の確認ダイアログを接続前に登録する。未登録のまま接続すると
       // 未知のホスト鍵はすべて拒否される（SshService のフェイルセーフ）。
       controller.onHostkeyPrompt = _confirmHostkey;
+      controller.failureLocalizer = _localizeFailure;
       controller.connect();
       _loadFloatingCmds();
       _loadPanelPosition();
@@ -512,7 +513,7 @@ class _TerminalScreenState extends State<TerminalScreen>
                             icon: Icons.refresh_rounded,
                             label: AppLocalizations.of(context)!.reconnectButton,
                             color: AppColors.warning,
-                            onTap: controller.reconnect,
+                            onTap: () => _reconnect(controller),
                           ),
                         // 全バッファコピー
                         if (controller.isConnected)
@@ -525,7 +526,7 @@ class _TerminalScreenState extends State<TerminalScreen>
                         // UI 全非表示ボタン
                         _TikTokActionButton(
                           icon: Icons.keyboard_hide_rounded,
-                          label: '非表示',
+                          label: AppLocalizations.of(context)!.hideUi,
                           color: AppColors.primary,
                           onTap: () => setState(() => _uiVisible = false),
                         ),
@@ -721,10 +722,10 @@ class _TerminalScreenState extends State<TerminalScreen>
                     fontSize: 16,
                     fontWeight: FontWeight.w600,
                   )),
-              if (controller.errorMessage != null) ...[
+              if (controller.failure != null) ...[
                 const SizedBox(height: 8),
                 Text(
-                  controller.errorMessage!,
+                  _localizeFailure(controller.failure!),
                   textAlign: TextAlign.center,
                   style: const TextStyle(
                       color: AppColors.textSecondary, fontSize: 13),
@@ -732,7 +733,7 @@ class _TerminalScreenState extends State<TerminalScreen>
               ],
               const SizedBox(height: 20),
               ElevatedButton.icon(
-                onPressed: controller.reconnect,
+                onPressed: () => _reconnect(controller),
                 icon: const Icon(Icons.refresh_rounded),
                 label: Text(AppLocalizations.of(context)!.reconnect),
                 style: ElevatedButton.styleFrom(
@@ -754,6 +755,29 @@ class _TerminalScreenState extends State<TerminalScreen>
         ),
       ),
     );
+  }
+
+  void _reconnect(TerminalController controller) {
+    controller.reconnect(
+        notice: AppLocalizations.of(context)!.sshReconnecting);
+  }
+
+  // ── 接続失敗メッセージのローカライズ ──────────────────────
+
+  /// SshFailure を表示用の文言に変換する。技術的な詳細は括弧で添える。
+  String _localizeFailure(SshFailure failure) {
+    final l = AppLocalizations.of(context)!;
+    final message = switch (failure.kind) {
+      SshFailureKind.hostkeyUnconfirmed => l.sshErrorHostkeyUnconfirmed,
+      SshFailureKind.hostkeyChanged => l.sshErrorHostkeyChanged,
+      SshFailureKind.hostkeyRejected => l.sshErrorHostkeyRejected,
+      SshFailureKind.hostkeyInvalid => l.sshErrorHostkeyInvalid,
+      SshFailureKind.authFailed => l.sshErrorAuthFailed,
+      SshFailureKind.authRejected => l.sshErrorAuthRejected,
+      SshFailureKind.connectionFailed => l.sshErrorConnectionFailed,
+    };
+    final detail = failure.detail;
+    return detail == null ? message : '$message ($detail)';
   }
 
   // ── ホスト鍵確認ダイアログ ────────────────────────────────
@@ -1235,11 +1259,11 @@ class _ConnectionIndicator extends StatelessWidget {
         SshConnectionState.disconnected => AppColors.textMuted,
       };
 
-  String get _label => switch (state) {
-        SshConnectionState.connected => '接続済み',
-        SshConnectionState.connecting => '接続中',
-        SshConnectionState.error => 'エラー',
-        SshConnectionState.disconnected => '切断',
+  String _label(AppLocalizations l) => switch (state) {
+        SshConnectionState.connected => l.connectionStateConnected,
+        SshConnectionState.connecting => l.connectionStateConnecting,
+        SshConnectionState.error => l.connectionStateError,
+        SshConnectionState.disconnected => l.connectionStateDisconnected,
       };
 
   @override
@@ -1260,7 +1284,7 @@ class _ConnectionIndicator extends StatelessWidget {
         ),
         const SizedBox(width: 4),
         Text(
-          _label,
+          _label(AppLocalizations.of(context)!),
           style: TextStyle(
               color: _color, fontSize: 10, fontWeight: FontWeight.w600),
         ),
@@ -2410,13 +2434,15 @@ class _CommandLauncherSheetState extends State<_CommandLauncherSheet> {
 
   void _confirmDeleteCategory(int index) {
     final cat = _categories[index];
+    final l = AppLocalizations.of(context)!;
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
         backgroundColor: AppColors.surface,
         title: Text(AppLocalizations.of(context)!.launcherDeleteCategory,
             style: const TextStyle(color: AppColors.textPrimary)),
-        content: Text('「${cat.icon} ${cat.label}」を削除しますか？',
+        content: Text(
+            '「${cat.icon} ${cat.label}」${l.launcherDeleteCategoryConfirm}',
             style: const TextStyle(color: AppColors.textSecondary)),
         actions: [
           TextButton(

@@ -194,7 +194,7 @@ class _CommandInputBarState extends State<CommandInputBar> {
                 color: widget.enabled
                     ? AppColors.primary
                     : const Color(0xFFBBAA9A),
-                tooltip: '送信 (Enter)',
+                tooltip: AppLocalizations.of(context)!.commandSend,
                 onTap: widget.enabled ? _send : null,
                 filled: true,
               ),

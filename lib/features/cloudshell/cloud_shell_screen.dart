@@ -7,6 +7,7 @@ import '../../core/constants.dart';
 import '../../core/screenshot_mode.dart';
 import '../../core/secure_storage_service.dart';
 import '../../theme/app_theme.dart';
+import '../../core/failure_messages.dart';
 import '../../features/auth/google_auth_service.dart';
 import '../../features/github/git_credentials.dart';
 import '../../features/github/github_service.dart';
@@ -108,7 +109,7 @@ class _CloudShellScreenState extends State<CloudShellScreen> {
                       Border.all(color: AppColors.error.withOpacity(0.4)),
                 ),
                 child: Text(
-                  auth.error!,
+                  authFailureMessage(l, auth.error!),
                   style: const TextStyle(color: AppColors.errorLight),
                   textAlign: TextAlign.center,
                 ),
@@ -454,7 +455,9 @@ class _EagerTerminalViewState extends State<_EagerTerminalView> {
                       fontWeight: FontWeight.w600)),
               const SizedBox(height: 12),
               Text(
-                service.error ?? '',
+                service.error == null
+                    ? ''
+                    : cloudShellFailureMessage(l, service.error!),
                 textAlign: TextAlign.center,
                 style: const TextStyle(
                     color: AppColors.textSecondary, fontSize: 13),

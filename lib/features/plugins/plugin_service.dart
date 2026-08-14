@@ -46,19 +46,56 @@ class PluginStoreEntry {
       );
 }
 
+/// プラグインのインストールに失敗した理由。表示文言は UI 層が決める。
+enum PluginFailureKind {
+  /// ZIP のダウンロードに失敗した
+  downloadFailed,
+
+  /// アーカイブに plugin.json が無い
+  manifestMissing,
+
+  /// アーカイブに展開先を抜け出すパスが含まれていた
+  unsafePath,
+
+  /// GitHub リポジトリの URL として解釈できない
+  invalidRepoUrl,
+
+  /// 想定外のエラー（[PluginFailure.detail] に詳細）
+  unknown,
+}
+
+class PluginFailure {
+  const PluginFailure(this.kind, {this.detail});
+
+  final PluginFailureKind kind;
+  final String? detail;
+}
+
+/// サービス内部で送出する型付き例外。
+class PluginException implements Exception {
+  const PluginException(this.kind, {this.detail});
+
+  final PluginFailureKind kind;
+  final String? detail;
+
+  @override
+  String toString() => 'PluginException(${kind.name}${detail == null ? '' : ': $detail'})';
+}
+
 /// プラグインのインストール・読み込み・有効/無効・削除を管理する
 class PluginService extends ChangeNotifier {
   List<LoadedPlugin> _plugins = [];
   bool _isInstalling = false;
   double _installProgress = 0.0;
-  String? _installError;
+  PluginFailure? _installError;
 
   List<LoadedPlugin> get plugins => List.unmodifiable(_plugins);
   List<LoadedPlugin> get enabledPlugins =>
       _plugins.where((p) => p.isEnabled).toList();
   bool get isInstalling => _isInstalling;
   double get installProgress => _installProgress;
-  String? get installError => _installError;
+  /// 直近のインストール失敗。表示文言は UI 層（ロケール）が決める。
+  PluginFailure? get installError => _installError;
 
   // ── 起動時読み込み ─────────────────────────────────
 
@@ -114,7 +151,8 @@ class PluginService extends ChangeNotifier {
         headers: {'Accept': 'application/vnd.github+json'},
       ).timeout(AppConstants.httpDownloadTimeout);
       if (response.statusCode != 200) {
-        throw Exception('ダウンロード失敗 (HTTP ${response.statusCode})');
+        throw PluginException(PluginFailureKind.downloadFailed,
+            detail: 'HTTP ${response.statusCode}');
       }
 
       _installProgress = 0.4;
@@ -134,7 +172,8 @@ class PluginService extends ChangeNotifier {
             f.name == 'plugin.json' ||
             f.name == '$topLevel/plugin.json' ||
             f.name.endsWith('/plugin.json'),
-        orElse: () => throw Exception('plugin.json が見つかりません'),
+        orElse: () =>
+            throw const PluginException(PluginFailureKind.manifestMissing),
       );
       final manifest = PluginManifest.fromJson(
           jsonDecode(utf8.decode(manifestEntry.content as List<int>))
@@ -179,7 +218,9 @@ class PluginService extends ChangeNotifier {
 
       _installProgress = 1.0;
     } catch (e) {
-      _installError = e.toString();
+      _installError = e is PluginException
+          ? PluginFailure(e.kind, detail: e.detail)
+          : PluginFailure(PluginFailureKind.unknown, detail: e.toString());
     } finally {
       _isInstalling = false;
       notifyListeners();
@@ -283,7 +324,7 @@ class PluginService extends ChangeNotifier {
     final base = _normalize(targetDir.path);
     final resolved = _normalize('$base/$entryName');
     if (resolved != base && !resolved.startsWith('$base/')) {
-      throw Exception('不正なパスを含むプラグインです: $entryName');
+      throw PluginException(PluginFailureKind.unsafePath, detail: entryName);
     }
     return resolved;
   }
@@ -312,7 +353,9 @@ class PluginService extends ChangeNotifier {
     final uri = Uri.parse(repoUrl);
     final parts =
         uri.pathSegments.where((s) => s.isNotEmpty).toList();
-    if (parts.length < 2) throw Exception('GitHubリポジトリのURLを入力してください');
+    if (parts.length < 2) {
+      throw const PluginException(PluginFailureKind.invalidRepoUrl);
+    }
     return 'https://api.github.com/repos/${parts[0]}/${parts[1]}/zipball';
   }
 }

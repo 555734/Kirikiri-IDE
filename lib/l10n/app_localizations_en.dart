@@ -744,6 +744,123 @@ class AppLocalizationsEn extends AppLocalizations {
   String get apiTestNoApiKeys => 'No API keys saved';
 
   @override
+  String get githubErrorInvalidToken =>
+      'That token is not valid. Enter a PAT with the repo scope.';
+
+  @override
+  String get pluginErrorDownloadFailed => 'Could not download the plugin.';
+
+  @override
+  String get pluginErrorManifestMissing =>
+      'plugin.json was not found in the archive.';
+
+  @override
+  String get pluginErrorUnsafePath =>
+      'Install aborted: the plugin contains an unsafe path.';
+
+  @override
+  String get pluginErrorInvalidRepoUrl => 'Enter a GitHub repository URL.';
+
+  @override
+  String get pluginErrorUnknown => 'Could not install the plugin.';
+
+  @override
+  String get cloudShellErrorNotSignedIn =>
+      'Not signed in. Please sign in with Google again.';
+
+  @override
+  String get cloudShellErrorAuthExpired =>
+      'Your session has expired. Please sign in with Google again.';
+
+  @override
+  String get cloudShellErrorStartTimeout =>
+      'Cloud Shell did not start in time (about 80 seconds).';
+
+  @override
+  String get cloudShellErrorUnknown => 'Could not start Cloud Shell.';
+
+  @override
+  String get authErrorCancelled => 'Sign-in was cancelled';
+
+  @override
+  String get authErrorTokenUnavailable => 'Could not obtain an access token';
+
+  @override
+  String get authErrorSignInFailed => 'Google sign-in failed';
+
+  @override
+  String get webPreviewTitle => 'Web Preview';
+
+  @override
+  String get webPreviewBack => 'Back';
+
+  @override
+  String get webPreviewForward => 'Forward';
+
+  @override
+  String get webPreviewReload => 'Reload';
+
+  @override
+  String get webPreviewOpenInBrowser => 'Open in browser';
+
+  @override
+  String get webPreviewUrlCopied => 'URL copied';
+
+  @override
+  String get connectionStateConnected => 'Connected';
+
+  @override
+  String get connectionStateConnecting => 'Connecting';
+
+  @override
+  String get connectionStateError => 'Error';
+
+  @override
+  String get connectionStateDisconnected => 'Disconnected';
+
+  @override
+  String get hideUi => 'Hide';
+
+  @override
+  String get launcherDeleteCategoryConfirm => 'will be deleted. Continue?';
+
+  @override
+  String get sshAuthPrivateKeyLabel => 'Key authentication';
+
+  @override
+  String get sshAuthPasswordLabel => 'Password authentication';
+
+  @override
+  String get commandSend => 'Send (Enter)';
+
+  @override
+  String get sshReconnecting => 'Reconnecting...';
+
+  @override
+  String get sshErrorHostkeyUnconfirmed =>
+      'Aborted: the server\'s host key could not be verified.';
+
+  @override
+  String get sshErrorHostkeyChanged =>
+      'Aborted: the server\'s host key has changed, which may indicate a man-in-the-middle attack.';
+
+  @override
+  String get sshErrorHostkeyRejected =>
+      'Aborted: the host key was not approved.';
+
+  @override
+  String get sshErrorHostkeyInvalid => 'Host key verification failed.';
+
+  @override
+  String get sshErrorAuthFailed => 'SSH authentication failed.';
+
+  @override
+  String get sshErrorAuthRejected => 'SSH authentication was rejected.';
+
+  @override
+  String get sshErrorConnectionFailed => 'Could not connect.';
+
+  @override
   String get hostkeyUnknownTitle => 'Verify host key';
 
   @override

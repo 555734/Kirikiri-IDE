@@ -16,6 +16,38 @@ enum CloudShellState { unknown, starting, running, stopped, error }
 enum StartupStep { idle, preparingKey, checkingState, starting, waitingRunning, registeringKey }
 
 /// Google Cloud Shell API サービス
+/// Cloud Shell の起動に失敗した理由。表示文言は UI 層が決める。
+enum CloudShellFailureKind {
+  /// アクセストークンが無い（未ログイン）
+  notSignedIn,
+
+  /// アクセストークンの期限切れ
+  authExpired,
+
+  /// 起動待ちがタイムアウトした
+  startTimeout,
+
+  /// 想定外のエラー（[CloudShellFailure.detail] に詳細）
+  unknown,
+}
+
+class CloudShellFailure {
+  const CloudShellFailure(this.kind, {this.detail});
+
+  final CloudShellFailureKind kind;
+  final String? detail;
+}
+
+/// サービス内部で送出する型付き例外。
+class CloudShellException implements Exception {
+  const CloudShellException(this.kind);
+
+  final CloudShellFailureKind kind;
+
+  @override
+  String toString() => 'CloudShellException(${kind.name})';
+}
+
 class CloudShellService extends ChangeNotifier {
   final _storage = SecureStorageService.instance;
 
@@ -26,7 +58,7 @@ class CloudShellService extends ChangeNotifier {
   String? _sshUsername;
   int _sshPort = AppConstants.sshPort;
   String? _webHost;
-  String? _error;
+  CloudShellFailure? _error;
   bool _isLoading = false;
   List<String> _remotePublicKeys = [];
 
@@ -42,7 +74,8 @@ class CloudShellService extends ChangeNotifier {
   String? get sshUsername => _sshUsername;
   int get sshPort => _sshPort;
   String? get webHost => _webHost;
-  String? get error => _error;
+  /// 直近の失敗。表示文言は UI 層（ロケール）が決める。
+  CloudShellFailure? get error => _error;
   bool get isLoading => _isLoading;
   bool get isRunning => _state == CloudShellState.running;
 
@@ -102,7 +135,7 @@ class CloudShellService extends ChangeNotifier {
       ]);
       final token = results[0];
       if (token == null || token.isEmpty) {
-        throw Exception('未ログインです。再度Googleログインしてください。');
+        throw const CloudShellException(CloudShellFailureKind.notSignedIn);
       }
 
       // SSH鍵ペアを準備（初回 or コメント付き旧形式の場合は再生成）
@@ -133,7 +166,10 @@ class CloudShellService extends ChangeNotifier {
       unawaited(_registerKeyNonBlocking(token));
     } catch (e) {
       _state = CloudShellState.error;
-      _error = e.toString();
+      _error = e is CloudShellException
+          ? CloudShellFailure(e.kind)
+          : CloudShellFailure(CloudShellFailureKind.unknown,
+              detail: e.toString());
     } finally {
       _startupStep = StartupStep.idle;
       if (_isLoading) _isLoading = false; // エラーパスのみここで false
@@ -246,7 +282,7 @@ class CloudShellService extends ChangeNotifier {
             .timeout(AppConstants.httpTimeout);
 
         if (response.statusCode == 401) {
-          throw Exception('認証期限切れです。再度Googleログインしてください。');
+          throw const CloudShellException(CloudShellFailureKind.authExpired);
         }
         if (response.statusCode != 200) continue;
 
@@ -262,13 +298,15 @@ class CloudShellService extends ChangeNotifier {
         _pollAttempt = i;
         _state = CloudShellState.starting;
         notifyListeners();
-      } catch (e) {
-        if (e.toString().contains('認証')) rethrow;
+      } on CloudShellException {
+        // 認証エラーはリトライしても回復しないため即座に伝播させる
+        rethrow;
+      } catch (_) {
         // ネットワーク一時エラーは無視して継続
       }
     }
 
-    throw Exception('Cloud Shell の起動がタイムアウトしました（約80秒）');
+    throw const CloudShellException(CloudShellFailureKind.startTimeout);
   }
 
   // ── Cloud Shell API: SSH公開鍵を登録（リトライ付き） ──

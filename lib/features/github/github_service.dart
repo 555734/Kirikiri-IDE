@@ -293,6 +293,15 @@ class WorkflowStep {
 
 // ── サービス ──────────────────────────────────────────────
 
+/// GitHub 接続の失敗理由。表示文言は UI 層（ロケール）が決める。
+enum GitHubFailureKind { invalidToken }
+
+class GitHubFailure {
+  const GitHubFailure(this.kind);
+
+  final GitHubFailureKind kind;
+}
+
 class GitHubService extends ChangeNotifier {
   final _storage = SecureStorageService.instance;
   final _cache = GitHubCache();
@@ -301,7 +310,7 @@ class GitHubService extends ChangeNotifier {
   String? _pat;
   String? _username;
   bool _isLoading = false;
-  String? _error;
+  GitHubFailure? _error;
 
   static const _ttlRepos     = Duration(minutes: 5);
   static const _ttlTree      = Duration(minutes: 5);
@@ -315,7 +324,8 @@ class GitHubService extends ChangeNotifier {
   bool get isAuthenticated => _pat != null && _pat!.isNotEmpty;
   String? get username => _username;
   bool get isLoading => _isLoading;
-  String? get error => _error;
+  /// 直近の失敗。表示文言は UI 層（ロケール）が決める。
+  GitHubFailure? get error => _error;
   String? get pat => _pat;
 
   /// テスト用に PAT を直接設定する（ネットワーク検証を行わない）。
@@ -345,7 +355,7 @@ class GitHubService extends ChangeNotifier {
       await _storage.saveGitHubPat(_pat!);
     } catch (e) {
       _pat = null;
-      _error = 'トークンが無効です。repo スコープ付きの PAT を入力してください。';
+      _error = const GitHubFailure(GitHubFailureKind.invalidToken);
     } finally {
       _isLoading = false;
       notifyListeners();

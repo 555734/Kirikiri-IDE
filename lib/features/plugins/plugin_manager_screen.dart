@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:kirikiri/l10n/app_localizations.dart';
 import 'package:provider/provider.dart';
 
+import '../../core/failure_messages.dart';
 import '../../theme/app_theme.dart';
 import 'loaded_plugin.dart';
 import 'plugin_service.dart';
@@ -139,7 +140,8 @@ class _PluginManagerScreenState extends State<PluginManagerScreen> {
                 const SizedBox(width: 8),
                 Expanded(
                   child: Text(
-                    service.installError!,
+                    pluginFailureMessage(AppLocalizations.of(context)!,
+                        service.installError!),
                     style: const TextStyle(
                         color: AppColors.error, fontSize: 12),
                   ),

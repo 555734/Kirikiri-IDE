@@ -6,6 +6,7 @@ import 'package:provider/provider.dart';
 import '../../core/secure_storage_service.dart';
 import '../../home_screen.dart';
 import '../../theme/app_theme.dart';
+import '../../core/failure_messages.dart';
 import '../auth/google_auth_service.dart';
 
 // ── データ ────────────────────────────────────────────────────
@@ -433,7 +434,9 @@ class _LoginPage extends StatelessWidget {
                                 color: AppColors.error.withOpacity(0.3)),
                           ),
                           child: Text(
-                            auth.error!,
+                            authFailureMessage(
+                                AppLocalizations.of(context)!,
+                                auth.error!),
                             style: const TextStyle(
                                 color: AppColors.errorLight, fontSize: 13),
                           ),

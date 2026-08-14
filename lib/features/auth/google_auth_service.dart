@@ -3,6 +3,25 @@ import 'package:google_sign_in/google_sign_in.dart';
 
 import '../../core/secure_storage_service.dart';
 
+/// 認証に失敗した理由。表示文言は UI 層（ロケール）が決める。
+enum AuthFailureKind {
+  /// ユーザーがサインインを中断した
+  cancelled,
+
+  /// サインインは成功したがアクセストークンが得られなかった
+  tokenUnavailable,
+
+  /// 想定外のエラー（[AuthFailure.detail] に詳細）
+  signInFailed,
+}
+
+class AuthFailure {
+  const AuthFailure(this.kind, {this.detail});
+
+  final AuthFailureKind kind;
+  final String? detail;
+}
+
 /// Google Sign-In を使った認証サービス
 /// flutter_web_auth_2 + 手動 PKCE の代わりに公式 SDK を使用
 class GoogleAuthService extends ChangeNotifier {
@@ -19,11 +38,13 @@ class GoogleAuthService extends ChangeNotifier {
   );
 
   bool _isLoading = false;
-  String? _error;
+  AuthFailure? _error;
   bool _isSignedIn;
 
   bool get isLoading => _isLoading;
-  String? get error => _error;
+
+  /// 直近の失敗。表示文言は UI 層（ロケール）が決める。
+  AuthFailure? get error => _error;
   bool get isSignedIn => _isSignedIn;
 
   // ── 認証済みチェック (サイレントサインインで最新トークン取得) ──
@@ -69,7 +90,7 @@ class GoogleAuthService extends ChangeNotifier {
     try {
       final account = await _googleSignIn.signIn();
       if (account == null) {
-        _setError('ログインがキャンセルされました');
+        _setError(const AuthFailure(AuthFailureKind.cancelled));
         return;
       }
 
@@ -77,7 +98,7 @@ class GoogleAuthService extends ChangeNotifier {
       final accessToken = auth.accessToken;
 
       if (accessToken == null) {
-        _setError('アクセストークンの取得に失敗しました');
+        _setError(const AuthFailure(AuthFailureKind.tokenUnavailable));
         return;
       }
 
@@ -86,7 +107,8 @@ class GoogleAuthService extends ChangeNotifier {
       _setLoading(false);
       onSuccess();
     } catch (e) {
-      _setError('Googleログインに失敗しました: $e');
+      _setError(
+          AuthFailure(AuthFailureKind.signInFailed, detail: e.toString()));
     } finally {
       _setLoading(false);
     }
@@ -107,8 +129,8 @@ class GoogleAuthService extends ChangeNotifier {
     notifyListeners();
   }
 
-  void _setError(String msg) {
-    _error = msg;
+  void _setError(AuthFailure failure) {
+    _error = failure;
     notifyListeners();
   }
 

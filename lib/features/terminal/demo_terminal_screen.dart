@@ -449,9 +449,9 @@ class _DemoCommandBar extends StatelessWidget {
                   ),
                   padding: const EdgeInsets.symmetric(horizontal: 10),
                   alignment: Alignment.centerLeft,
-                  child: const Text(
-                    'コマンドを入力...',
-                    style: TextStyle(
+                  child: Text(
+                    AppLocalizations.of(context)!.commandInputHint,
+                    style: const TextStyle(
                       color: Color(0xFFBB9999),
                       fontSize: 13,
                       fontFamily: 'monospace',

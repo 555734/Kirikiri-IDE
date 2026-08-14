@@ -3,6 +3,7 @@ import 'package:kirikiri/l10n/app_localizations.dart';
 import 'package:provider/provider.dart';
 
 import '../../theme/app_theme.dart';
+import '../../core/failure_messages.dart';
 import 'google_auth_service.dart';
 import '../cloudshell/cloud_shell_screen.dart';
 
@@ -64,7 +65,8 @@ class GoogleAuthScreen extends StatelessWidget {
                             color: AppColors.error.withOpacity(0.4)),
                       ),
                       child: Text(
-                        auth.error!,
+                        authFailureMessage(
+                            AppLocalizations.of(context)!, auth.error!),
                         style: const TextStyle(color: AppColors.errorLight),
                         textAlign: TextAlign.center,
                       ),

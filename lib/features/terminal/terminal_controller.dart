@@ -49,11 +49,12 @@ class TerminalController extends ChangeNotifier {
   late final xterm_pkg.TerminalController xtermController;
 
   SshConnectionState _connectionState = SshConnectionState.disconnected;
-  String? _errorMessage;
+  SshFailure? _failure;
   bool _isDisposed = false;
 
   SshConnectionState get connectionState => _connectionState;
-  String? get errorMessage => _errorMessage;
+  /// 直近の接続失敗。表示文言は UI 層が [failureLocalizer] で決める。
+  SshFailure? get failure => _failure;
   bool get isConnected => _connectionState == SshConnectionState.connected;
   List<String> get sshLog => _ssh.log;
 
@@ -105,10 +106,11 @@ class TerminalController extends ChangeNotifier {
       terminal.write(data);
     }));
 
-    _subs.add(_ssh.errorStream.listen((msg) {
+    _subs.add(_ssh.errorStream.listen((failure) {
       if (_isDisposed) return;
-      _errorMessage = msg;
-      terminal.write('\r\n\x1B[31m[kirikiri] $msg\x1B[0m\r\n');
+      _failure = failure;
+      terminal.write(
+          '\r\n\x1B[31m[kirikiri] ${_describe(failure)}\x1B[0m\r\n');
       notifyListeners();
     }));
   }
@@ -117,6 +119,16 @@ class TerminalController extends ChangeNotifier {
   /// 接続前に UI 層が設定する。未設定なら該当する鍵は拒否される。
   set onHostkeyPrompt(HostkeyPromptHandler? handler) =>
       _ssh.onHostkeyPrompt = handler;
+
+  /// 失敗をロケールに応じた文言へ変換するコールバック。UI 層が設定する。
+  /// 未設定の場合は技術的な詳細のみを表示する。
+  String Function(SshFailure failure)? failureLocalizer;
+
+  String _describe(SshFailure failure) {
+    final localize = failureLocalizer;
+    if (localize != null) return localize(failure);
+    return failure.detail ?? failure.kind.name;
+  }
 
   /// 準備フックを実行してから初期コマンドを送信する。
   Future<void> _runInitialCommand() async {
@@ -139,7 +151,7 @@ class TerminalController extends ChangeNotifier {
   }
 
   Future<void> connect() async {
-    _errorMessage = null;
+    _failure = null;
     notifyListeners();
     await _ssh.connect(
       cols: terminal.viewWidth > 0 ? terminal.viewWidth : 80,
@@ -158,8 +170,12 @@ class TerminalController extends ChangeNotifier {
   /// SftpServiceがSFTP操作に使用するSSHクライアント
   SshService get sshService => _ssh;
 
-  Future<void> reconnect() async {
-    terminal.write('\r\n\x1B[33m[kirikiri] 再接続中...\x1B[0m\r\n');
+  /// 再接続する。[notice] が渡された場合はターミナルに表示する
+  /// （文言は UI 層がロケールに応じて決める）。
+  Future<void> reconnect({String? notice}) async {
+    if (notice != null) {
+      terminal.write('\r\n\x1B[33m[kirikiri] $notice\x1B[0m\r\n');
+    }
     await _ssh.disconnect();
     await Future.delayed(const Duration(milliseconds: 500));
     await connect();
