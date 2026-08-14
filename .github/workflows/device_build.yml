@@ -1,0 +1,108 @@
+name: Device Test Build
+
+# 実機確認用のビルド。署名シークレットを必要としないので、リリース用の
+# ワークフローと違って誰でも・いつでも走らせられる。
+#
+# Android のリリースビルドは key.properties が無いとデバッグ署名に
+# フォールバックする（android/app/build.gradle）。そのままインストールできる
+# うえ、minifyEnabled と proguard-rules.pro を通るので、難読化ビルドでしか
+# 出ない不具合をここで捕まえられる。
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+      - 'claude/**'
+    paths-ignore:
+      - '**.md'
+      - 'docs/**'
+
+concurrency:
+  group: device-build-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  FLUTTER_VERSION: 3.47.0
+
+jobs:
+  android:
+    name: Android APK (debug + release)
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          channel: stable
+          cache: true
+
+      - name: Install dependencies
+        run: flutter pub get
+
+      - name: Generate localizations
+        run: flutter gen-l10n
+
+      # 端末に入れて動作を確認するためのビルド
+      - name: Build debug APK
+        run: flutter build apk --debug
+
+      # R8 / proguard-rules.pro を実際に通す。リフレクションを使う
+      # プラグイン（secure_storage の Tink など）が縮小で壊れていないかは
+      # このビルドが通るかどうかで分かる。
+      - name: Build release APK (minified)
+        run: flutter build apk --release
+
+      - name: Upload APKs
+        uses: actions/upload-artifact@v4
+        with:
+          name: android-apk-${{ github.sha }}
+          path: |
+            build/app/outputs/flutter-apk/app-debug.apk
+            build/app/outputs/flutter-apk/app-release.apk
+          retention-days: 14
+          if-no-files-found: error
+
+  ios:
+    name: iOS build (no code signing)
+    # macOS ランナーは Linux より課金単位が大きい。頻度を下げたい場合は
+    # このジョブを workflow_dispatch のみに絞ること。
+    runs-on: macos-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          channel: stable
+          cache: true
+
+      - name: Install dependencies
+        run: flutter pub get
+
+      - name: Generate localizations
+        run: flutter gen-l10n
+
+      # Xcode プロジェクトはリポジトリに含まれていないため生成する
+      # （build_ios.yml と同じ手順）
+      - name: Ensure iOS project structure exists
+        run: |
+          mkdir -p ios/Runner/Assets.xcassets/AppIcon.appiconset
+          if [ ! -f "ios/Runner.xcodeproj/project.pbxproj" ]; then
+            flutter create --project-name kirikiri --org io.kirikiri --platforms ios .
+            sed -i '' 's/io\.kirikiri\.kirikiri/io.kirikiri.app/g' \
+              ios/Runner.xcodeproj/project.pbxproj
+          fi
+
+      # 署名しないのでインストールはできないが、CocoaPods の解決と
+      # ネイティブ側のコンパイルは検証できる。新しく追加したプラグインが
+      # iOS で問題なく組み込めるかはここで分かる。
+      - name: Build iOS (no codesign)
+        run: flutter build ios --release --no-codesign
