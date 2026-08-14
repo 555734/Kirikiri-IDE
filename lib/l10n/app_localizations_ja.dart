@@ -824,6 +824,42 @@ class AppLocalizationsJa extends AppLocalizations {
   String get commandSend => '送信 (Enter)';
 
   @override
+  String get remoteFilesTitle => 'ファイル';
+
+  @override
+  String get remoteFilesEmpty => 'ファイルがありません';
+
+  @override
+  String get remoteFilesParent => '上の階層へ';
+
+  @override
+  String get remoteFilesShowHidden => '隠しファイルを表示';
+
+  @override
+  String get remoteFileSaved => '保存しました';
+
+  @override
+  String get remoteFileErrorNotConnected => 'SSH に接続していません。';
+
+  @override
+  String get remoteFileErrorNotText => 'テキストファイルではないため開けません。';
+
+  @override
+  String get remoteFileErrorTooLarge => 'ファイルが大きすぎるため開けません。';
+
+  @override
+  String get remoteFileErrorFailed => 'ファイルを操作できませんでした。';
+
+  @override
+  String get remoteFileDiscardTitle => '編集を破棄しますか？';
+
+  @override
+  String get remoteFileDiscardBody => '保存していない変更があります。';
+
+  @override
+  String get discard => '破棄する';
+
+  @override
   String get sshReconnecting => '再接続中...';
 
   @override

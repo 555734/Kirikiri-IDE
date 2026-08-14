@@ -27,6 +27,7 @@ Kirikiri is an open-source Flutter app that connects your smartphone to cloud de
 - **Google Cloud Shell** — One-tap connection to a full Linux environment in the cloud. No setup required.
 - **SSH Client** — Connect to any server with password or private key authentication.
 - **GitHub Integration** — Browse repositories and open them instantly in Cloud Shell.
+- **Remote File Editing** — Browse and edit the working tree the terminal is actually in, over SFTP. Opens in the terminal's current directory, so there's no path to retype.
 - **Command Buttons** — Place frequently used commands as floating buttons on the terminal screen. Tap to send — no typing required.
 - **Plugin System** — Install plugins from any GitHub repository to extend functionality.
 - **Finish Notifications** — Long-running commands can ping your phone when they're done, so you can start a build or an AI agent and put the phone away. See [Notifications from the remote host](#notifications-from-the-remote-host).

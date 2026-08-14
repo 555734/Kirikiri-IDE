@@ -12,6 +12,8 @@ import '../../core/known_hosts_service.dart';
 import '../../core/secure_storage_service.dart';
 import '../../core/theme_service.dart';
 import '../../theme/app_theme.dart';
+import '../files/remote_file_browser_screen.dart';
+import '../files/remote_file_service.dart';
 import '../plugins/loaded_plugin.dart';
 import '../plugins/tui_launcher.dart';
 import '../plugins/widgets/plugin_command_chips.dart';
@@ -501,6 +503,14 @@ class _TerminalScreenState extends State<TerminalScreen>
                             label: AppLocalizations.of(context)!.preview,
                             onTap: () => _showPortPicker(context, controller),
                           ),
+                        // リモートの作業ツリーを開く
+                        if (controller.isConnected)
+                          TerminalActionButton(
+                            icon: Icons.folder_open_rounded,
+                            label:
+                                AppLocalizations.of(context)!.remoteFilesTitle,
+                            onTap: () => _openRemoteFiles(controller),
+                          ),
                         // コマンドランチャー
                         TerminalActionButton(
                           icon: Icons.grid_view_rounded,
@@ -773,6 +783,18 @@ class _TerminalScreenState extends State<TerminalScreen>
         ),
       ),
     );
+  }
+
+  /// ターミナルが見ているのと同じ作業ツリーをファイラで開く。
+  void _openRemoteFiles(TerminalController controller) {
+    final service =
+        RemoteFileService(sshService: controller.sshService);
+    Navigator.of(context)
+        .push(MaterialPageRoute<void>(
+          builder: (_) => RemoteFileBrowserScreen(service: service),
+        ))
+        // 画面を閉じたら SFTP セッションも閉じる
+        .then((_) => service.dispose());
   }
 
   void _reconnect(TerminalController controller) {

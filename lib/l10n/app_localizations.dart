@@ -1664,6 +1664,78 @@ abstract class AppLocalizations {
   /// **'送信 (Enter)'**
   String get commandSend;
 
+  /// No description provided for @remoteFilesTitle.
+  ///
+  /// In ja, this message translates to:
+  /// **'ファイル'**
+  String get remoteFilesTitle;
+
+  /// No description provided for @remoteFilesEmpty.
+  ///
+  /// In ja, this message translates to:
+  /// **'ファイルがありません'**
+  String get remoteFilesEmpty;
+
+  /// No description provided for @remoteFilesParent.
+  ///
+  /// In ja, this message translates to:
+  /// **'上の階層へ'**
+  String get remoteFilesParent;
+
+  /// No description provided for @remoteFilesShowHidden.
+  ///
+  /// In ja, this message translates to:
+  /// **'隠しファイルを表示'**
+  String get remoteFilesShowHidden;
+
+  /// No description provided for @remoteFileSaved.
+  ///
+  /// In ja, this message translates to:
+  /// **'保存しました'**
+  String get remoteFileSaved;
+
+  /// No description provided for @remoteFileErrorNotConnected.
+  ///
+  /// In ja, this message translates to:
+  /// **'SSH に接続していません。'**
+  String get remoteFileErrorNotConnected;
+
+  /// No description provided for @remoteFileErrorNotText.
+  ///
+  /// In ja, this message translates to:
+  /// **'テキストファイルではないため開けません。'**
+  String get remoteFileErrorNotText;
+
+  /// No description provided for @remoteFileErrorTooLarge.
+  ///
+  /// In ja, this message translates to:
+  /// **'ファイルが大きすぎるため開けません。'**
+  String get remoteFileErrorTooLarge;
+
+  /// No description provided for @remoteFileErrorFailed.
+  ///
+  /// In ja, this message translates to:
+  /// **'ファイルを操作できませんでした。'**
+  String get remoteFileErrorFailed;
+
+  /// No description provided for @remoteFileDiscardTitle.
+  ///
+  /// In ja, this message translates to:
+  /// **'編集を破棄しますか？'**
+  String get remoteFileDiscardTitle;
+
+  /// No description provided for @remoteFileDiscardBody.
+  ///
+  /// In ja, this message translates to:
+  /// **'保存していない変更があります。'**
+  String get remoteFileDiscardBody;
+
+  /// No description provided for @discard.
+  ///
+  /// In ja, this message translates to:
+  /// **'破棄する'**
+  String get discard;
+
   /// No description provided for @sshReconnecting.
   ///
   /// In ja, this message translates to:

@@ -834,6 +834,42 @@ class AppLocalizationsEn extends AppLocalizations {
   String get commandSend => 'Send (Enter)';
 
   @override
+  String get remoteFilesTitle => 'Files';
+
+  @override
+  String get remoteFilesEmpty => 'Nothing here';
+
+  @override
+  String get remoteFilesParent => 'Up one level';
+
+  @override
+  String get remoteFilesShowHidden => 'Show hidden files';
+
+  @override
+  String get remoteFileSaved => 'Saved';
+
+  @override
+  String get remoteFileErrorNotConnected => 'Not connected over SSH.';
+
+  @override
+  String get remoteFileErrorNotText => 'This is not a text file.';
+
+  @override
+  String get remoteFileErrorTooLarge => 'This file is too large to open.';
+
+  @override
+  String get remoteFileErrorFailed => 'Could not access the file.';
+
+  @override
+  String get remoteFileDiscardTitle => 'Discard changes?';
+
+  @override
+  String get remoteFileDiscardBody => 'You have unsaved edits.';
+
+  @override
+  String get discard => 'Discard';
+
+  @override
   String get sshReconnecting => 'Reconnecting...';
 
   @override
