@@ -9,6 +9,7 @@ import '../preview/ssh_tunnel_service.dart';
 import '../terminal/demo_terminal_screen.dart';
 import '../terminal/terminal_controller.dart';
 import '../terminal/terminal_screen.dart';
+import '../terminal/tmux_session.dart';
 import 'ssh_connection.dart';
 import 'ssh_connection_form.dart';
 import 'ssh_connection_service.dart';
@@ -289,6 +290,8 @@ class _ConnectionCard extends StatelessWidget {
                       : null,
               sshUsername: conn.username,
               sshPort: conn.port,
+              // 切断してもリモートの作業が失われないよう tmux に載せる
+              initialCommand: TmuxSession.bootstrap(),
               tunnelService: ctx.read<SshTunnelService>(),
             ),
             update: (_, __, ctrl) => ctrl!,

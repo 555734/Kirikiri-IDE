@@ -16,6 +16,7 @@ import '../../features/preview/ssh_tunnel_service.dart';
 import '../../features/terminal/demo_terminal_screen.dart';
 import '../../features/terminal/terminal_controller.dart';
 import '../../features/terminal/terminal_screen.dart';
+import '../../features/terminal/tmux_session.dart';
 import 'cloud_shell_service.dart';
 
 /// Google Cloud Shell メイン画面
@@ -478,13 +479,7 @@ class _EagerTerminalViewState extends State<_EagerTerminalView> {
     );
   }
 
-  String _buildInitialCommand(String? repoCommand) {
-    const s = 'k';
-    if (repoCommand == null) return 'tmux new-session -A -s $s';
-    final escaped = repoCommand.replaceAll("'", r"'\''");
-    return "tmux new-session -d -s $s 2>/dev/null || true; "
-        "tmux send-keys -t $s '$escaped' Enter; "
-        "tmux attach-session -t $s";
-  }
+  String _buildInitialCommand(String? repoCommand) =>
+      TmuxSession.bootstrap(command: repoCommand);
 }
 
