@@ -61,16 +61,17 @@ class KnownHostsService {
 
   Map<String, String>? _cache;
 
-  /// dartssh2 が渡す MD5 ダイジェストを OpenSSH 形式の文字列に整形する。
+  /// dartssh2 が渡す指紋を表示用の文字列に整形する。
   ///
-  /// dartssh2 2.x のホスト鍵検証コールバックは MD5 ダイジェストしか渡さないため、
-  /// より強い SHA-256 指紋を利用することはできない。ピン留めの用途としては
-  /// 「検証しない」より遥かに強い保証が得られるが、将来 dartssh2 が
-  /// SHA-256 指紋を提供した場合は移行すること。
-  static String formatFingerprint(Uint8List digest) {
-    final hex =
-        digest.map((b) => b.toRadixString(16).padLeft(2, '0')).join(':');
-    return 'MD5:$hex';
+  /// dartssh2 2.22 以降は OpenSSH 形式の SHA-256 指紋（`SHA256:<base64>` を
+  /// UTF-8 エンコードしたもの）を渡す。`ssh-keygen -lf` の出力と直接比較できる。
+  static String formatFingerprint(Uint8List fingerprint) =>
+      utf8.decode(fingerprint);
+
+  /// 指紋文字列のアルゴリズム部分（'SHA256' など）。判別できない場合は null。
+  static String? algorithmOf(String fingerprint) {
+    final index = fingerprint.indexOf(':');
+    return index <= 0 ? null : fingerprint.substring(0, index);
   }
 
   static String _entryKey(String host, int port, String keyType) =>
@@ -114,9 +115,14 @@ class KnownHostsService {
   ) async {
     final known = await fingerprintOf(host, port, keyType);
     if (known == null) return HostkeyVerdict.unknown;
-    return known == fingerprint
-        ? HostkeyVerdict.trusted
-        : HostkeyVerdict.changed;
+    if (known == fingerprint) return HostkeyVerdict.trusted;
+
+    // ハッシュアルゴリズムが違うエントリ（古いバージョンが保存した MD5 指紋など）
+    // は値を比較できない。鍵が変わったわけではないので警告ではなく初回扱いにする。
+    if (algorithmOf(known) != algorithmOf(fingerprint)) {
+      return HostkeyVerdict.unknown;
+    }
+    return HostkeyVerdict.changed;
   }
 
   /// 指紋を信頼済みとして保存する（既存エントリは上書き）。

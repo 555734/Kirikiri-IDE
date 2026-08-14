@@ -4,7 +4,6 @@ class AppConstants {
 
   // ── アプリ情報 ──────────────────────────────────────────
   static const String appName = 'kirikiri';
-  static const String appVersion = '1.0.0';
 
   // ── 公開ドキュメント（docs/ を GitHub Pages で公開したもの） ──
   static const String termsOfUseUrl =

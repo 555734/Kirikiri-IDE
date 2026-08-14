@@ -414,8 +414,8 @@ class CloudShellService extends ChangeNotifier {
       ));
 
     final pair = keyGen.generateKeyPair();
-    final public = pair.publicKey as RSAPublicKey;
-    final private = pair.privateKey as RSAPrivateKey;
+    final public = pair.publicKey;
+    final private = pair.privateKey;
 
     final privatePem = _encodeRsaPrivatePem(private);
     final publicSsh = _encodeRsaPublicSsh(public);

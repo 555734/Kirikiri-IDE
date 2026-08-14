@@ -14,7 +14,7 @@ dependencies:
   intl: ^0.20.2
 
   # SSH クライアント (Dart純粋実装)
-  dartssh2: ^2.9.0
+  dartssh2: ^2.22.5
 
   # ターミナルエミュレーター ウィジェット
   xterm: ^4.0.0
@@ -29,7 +29,7 @@ dependencies:
   google_sign_in: ^6.2.1
 
   # SSH鍵生成用
-  pointycastle: ^3.7.3
+  pointycastle: ^4.0.0
 
   # 外部ブラウザ起動
   url_launcher: ^6.3.0
@@ -51,6 +51,7 @@ dependencies:
   path_provider: ^2.1.3     # デバイスローカルファイルシステム
 
   cupertino_icons: ^1.0.8
+  package_info_plus: ^9.0.1
 
 dev_dependencies:
   flutter_test:
@@ -71,5 +72,4 @@ flutter:
   uses-material-design: true
   generate: true
   assets:
-    - assets/adi-registration.properties
     - assets/icon/

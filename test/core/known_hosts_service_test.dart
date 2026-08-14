@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:typed_data';
 
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
@@ -20,17 +21,19 @@ void main() {
   });
 
   group('formatFingerprint', () {
-    test('MD5 ダイジェストを OpenSSH 形式に整形する', () {
-      final digest = Uint8List.fromList([0x00, 0x0f, 0xa1, 0xff]);
+    test('dartssh2 が渡す UTF-8 指紋をそのまま文字列にする', () {
+      final fingerprint = Uint8List.fromList(
+          utf8.encode('SHA256:abcDEF123+/xyz'));
       expect(
-        KnownHostsService.formatFingerprint(digest),
-        'MD5:00:0f:a1:ff',
+        KnownHostsService.formatFingerprint(fingerprint),
+        'SHA256:abcDEF123+/xyz',
       );
     });
 
-    test('1バイト値をゼロ埋めする', () {
-      final digest = Uint8List.fromList([1, 2, 3]);
-      expect(KnownHostsService.formatFingerprint(digest), 'MD5:01:02:03');
+    test('アルゴリズム部分を取り出せる', () {
+      expect(KnownHostsService.algorithmOf('SHA256:abc'), 'SHA256');
+      expect(KnownHostsService.algorithmOf('MD5:00:0f'), 'MD5');
+      expect(KnownHostsService.algorithmOf('abc'), isNull);
     });
   });
 
@@ -51,10 +54,20 @@ void main() {
     });
 
     test('指紋が異なれば changed', () async {
+      await knownHosts.trust(host, port, keyType, 'SHA256:aabb');
+      expect(
+        await knownHosts.verify(host, port, keyType, 'SHA256:ccdd'),
+        HostkeyVerdict.changed,
+      );
+    });
+
+    test('保存済みが旧形式(MD5)なら比較できないので unknown', () async {
+      // 以前のバージョンが保存した MD5 指紋。鍵が変わったわけではないので
+      // 「変更された」と警告してはいけない。
       await knownHosts.trust(host, port, keyType, 'MD5:aa:bb');
       expect(
-        await knownHosts.verify(host, port, keyType, 'MD5:cc:dd'),
-        HostkeyVerdict.changed,
+        await knownHosts.verify(host, port, keyType, 'SHA256:ccdd'),
+        HostkeyVerdict.unknown,
       );
     });
 

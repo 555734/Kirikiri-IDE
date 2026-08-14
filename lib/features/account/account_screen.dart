@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:kirikiri/l10n/app_localizations.dart';
+import 'package:package_info_plus/package_info_plus.dart';
 import 'package:provider/provider.dart';
 import 'package:url_launcher/url_launcher.dart';
 
@@ -716,8 +717,15 @@ class _AboutSection extends StatelessWidget {
         ListTile(
           leading: const Icon(Icons.info_outline_rounded),
           title: Text(l.version),
-          trailing: Text('1.0.0',
-              style: TextStyle(color: AppColors.textMuted, fontSize: 13)),
+          // バージョンは pubspec.yaml を単一の情報源とし、実行時に読み出す
+          trailing: FutureBuilder<PackageInfo>(
+            future: PackageInfo.fromPlatform(),
+            builder: (_, snapshot) => Text(
+              snapshot.data?.version ?? '',
+              style: const TextStyle(
+                  color: AppColors.textMuted, fontSize: 13),
+            ),
+          ),
         ),
       ],
     );

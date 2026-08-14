@@ -6,7 +6,8 @@
 .pub-cache/
 .pub/
 build/
-pubspec.lock
+
+# pubspec.lock はアプリなのでコミットする（ビルドの再現性のため）
 
 # Android
 **/android/**/gradle-wrapper.jar
