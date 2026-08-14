@@ -5,6 +5,7 @@ import 'package:kirikiri/l10n/app_localizations.dart';
 import 'package:provider/provider.dart';
 import 'package:url_launcher/url_launcher.dart';
 
+import '../../core/constants.dart';
 import '../../core/feature_flag_service.dart';
 import '../../core/secure_storage_service.dart';
 import '../../core/theme_service.dart';
@@ -699,7 +700,7 @@ class _AboutSection extends StatelessWidget {
           title: Text(l.termsOfUse),
           trailing: const Icon(Icons.arrow_forward_ios_rounded, size: 14),
           onTap: () => launchUrl(
-            Uri.parse('https://github.com/555734/kirikiri/blob/main/TERMS.md'),
+            Uri.parse(AppConstants.termsOfUseUrl),
             mode: LaunchMode.externalApplication,
           ),
         ),
@@ -708,7 +709,7 @@ class _AboutSection extends StatelessWidget {
           title: Text(l.privacyPolicy),
           trailing: const Icon(Icons.arrow_forward_ios_rounded, size: 14),
           onTap: () => launchUrl(
-            Uri.parse('https://github.com/555734/kirikiri/blob/main/PRIVACY.md'),
+            Uri.parse(AppConstants.privacyPolicyUrl),
             mode: LaunchMode.externalApplication,
           ),
         ),

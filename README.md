@@ -50,6 +50,18 @@ flutter gen-l10n
 flutter run
 ```
 
+> **iOS builds need one extra step.** The Xcode project (`ios/Runner.xcodeproj`,
+> asset catalog, storyboards) is not committed to this repository — only
+> `Info.plist`, `AppDelegate.swift` and the `Podfile` are. Regenerate the rest
+> before the first iOS build:
+>
+> ```bash
+> flutter create --project-name kirikiri --org io.kirikiri --platforms ios .
+> ```
+>
+> This is what `.github/workflows/build_ios.yml` does on CI. Android needs no
+> such step.
+
 ### Google Sign-In (iOS)
 
 1. Create an OAuth 2.0 Client ID for iOS in [Google Cloud Console](https://console.cloud.google.com) → APIs & Services → Credentials

@@ -6,6 +6,12 @@ class AppConstants {
   static const String appName = 'kirikiri';
   static const String appVersion = '1.0.0';
 
+  // ── 公開ドキュメント（docs/ を GitHub Pages で公開したもの） ──
+  static const String termsOfUseUrl =
+      'https://555734.github.io/kirikiri-web/terms.html';
+  static const String privacyPolicyUrl =
+      'https://555734.github.io/kirikiri-web/privacy.html';
+
   // google_sign_in パッケージが認証を担当するため OAuth 定数は不要
 
   // ── Google Cloud Shell API ─────────────────────────────
