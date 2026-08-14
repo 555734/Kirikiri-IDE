@@ -15,6 +15,9 @@ jobs:
 
       - uses: subosito/flutter-action@v2
         with:
+          # CI と同じ版に固定する。未固定だと stable の更新で
+          # リリースビルドだけが突然壊れる（Gradle の最低要求など）。
+          flutter-version: 3.47.0
           channel: stable
           cache: true
 
