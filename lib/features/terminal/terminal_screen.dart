@@ -249,8 +249,13 @@ class _TerminalScreenState extends State<TerminalScreen>
   void didChangeAppLifecycleState(AppLifecycleState state) {
     // iOS はバックグラウンドでソケットを維持できないため、復帰時は
     // 切れている前提で繋ぎ直しを試みる。
-    if (state == AppLifecycleState.resumed && mounted) {
-      context.read<TerminalController>().onAppResumed();
+    if (!mounted) return;
+    final controller = context.read<TerminalController>();
+    if (state == AppLifecycleState.resumed) {
+      controller.onAppResumed();
+    } else if (state == AppLifecycleState.paused ||
+        state == AppLifecycleState.hidden) {
+      controller.onAppPaused();
     }
   }
 

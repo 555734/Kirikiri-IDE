@@ -29,6 +29,7 @@ Kirikiri is an open-source Flutter app that connects your smartphone to cloud de
 - **GitHub Integration** — Browse repositories and open them instantly in Cloud Shell.
 - **Command Buttons** — Place frequently used commands as floating buttons on the terminal screen. Tap to send — no typing required.
 - **Plugin System** — Install plugins from any GitHub repository to extend functionality.
+- **Finish Notifications** — Long-running commands can ping your phone when they're done, so you can start a build or an AI agent and put the phone away. See [Notifications from the remote host](#notifications-from-the-remote-host).
 - **Localization** — English and Japanese support, automatically based on device language.
 - **Demo Mode** — Explore all features without signing in (`--dart-define=SCREENSHOT_MODE=true`).
 
@@ -88,6 +89,41 @@ flutter build appbundle --release
 # iOS release (requires Apple Developer account)
 flutter build ipa --release
 ```
+
+## Notifications from the remote host
+
+Watching a terminal for ten minutes is not something you do on a phone. Any
+command running on the remote host can notify you instead, using the escape
+sequences terminals already use for this — no helper tool to install:
+
+```bash
+# after a long build, an agent run, a test suite...
+npm run build; printf '\033]777;notify;build;finished\a'
+```
+
+`OSC 9` works too, if you only need a message:
+
+```bash
+printf '\033]9;deploy finished\a'
+```
+
+A shell function makes it reusable:
+
+```bash
+notify() { printf '\033]777;notify;%s;%s\a' "${1:-kirikiri}" "${2:-done}"; }
+make test; notify tests "$?"
+```
+
+Notifications are only raised while the app is in the background — if you are
+already looking at the terminal, the output is the notification.
+
+**Platform caveat:** the app has to be running to see the output that triggers
+the notification. On Android the foreground service keeps the connection alive,
+so this works with the app backgrounded. On iOS the system suspends the app and
+the SSH connection with it, so notifications only fire while the app is open
+(for example, while you are on another tab). Sessions run inside tmux, so
+nothing is lost either way — the app reconnects and reattaches when you come
+back.
 
 ## Architecture
 

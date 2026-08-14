@@ -6,9 +6,11 @@ import 'package:xterm/xterm.dart' show Terminal;
 import 'package:xterm/xterm.dart' as xterm_pkg show TerminalController;
 
 import '../../core/known_hosts_service.dart';
+import '../../core/notification_service.dart';
 import '../../core/ssh_foreground_service.dart';
 import '../preview/ssh_tunnel_service.dart';
 import 'reconnect_policy.dart';
+import 'remote_notification_parser.dart';
 import 'ssh_service.dart';
 
 /// UI 層から供給される表示文言。サービス層はロケールを知らないため、
@@ -120,6 +122,7 @@ class TerminalController extends ChangeNotifier {
     _subs.add(_ssh.outputStream.listen((data) {
       if (_isDisposed) return;
       terminal.write(data);
+      _checkForNotifications(data);
     }));
 
     _subs.add(_ssh.errorStream.listen((failure) {
@@ -167,7 +170,13 @@ class TerminalController extends ChangeNotifier {
   /// アプリが前面に戻ったときに UI 層から呼ぶ。
   /// iOS はバックグラウンドでソケットを維持できないため、復帰時はほぼ確実に
   /// 切れている。
-  void onAppResumed() => _scheduleReconnect();
+  void onAppResumed() {
+    _appInForeground = true;
+    _scheduleReconnect();
+  }
+
+  /// アプリが背面へ回ったときに UI 層から呼ぶ。
+  void onAppPaused() => _appInForeground = false;
 
   /// 通信の復帰イベントは短時間に連続して届くため、まとめて1回だけ試す。
   void _scheduleReconnect() {
@@ -191,6 +200,28 @@ class TerminalController extends ChangeNotifier {
         userInitiated: false,
       ));
     });
+  }
+
+  // ── リモートからの通知 ──────────────────────────────────
+  //
+  // 長時間かかる処理を投げてアプリを離れたとき、終わったことを知る手段が
+  // 必要になる。リモート側が送った通知シーケンスを拾って端末通知に変える。
+
+  final RemoteNotificationParser _notificationParser =
+      RemoteNotificationParser();
+
+  /// アプリが前面にあるか。前面で見ているときに通知を出しても邪魔なので、
+  /// 背面にいる間だけ通知する。
+  bool _appInForeground = true;
+
+  void _checkForNotifications(String data) {
+    for (final notification in _notificationParser.feed(data)) {
+      if (_appInForeground) continue;
+      unawaited(NotificationService.instance.show(
+        title: notification.title,
+        body: notification.body,
+      ));
+    }
   }
 
   /// 準備フックを実行してから初期コマンドを送信する。
@@ -251,6 +282,7 @@ class TerminalController extends ChangeNotifier {
     if (notice != null) {
       terminal.write('\r\n\x1B[33m[kirikiri] $notice\x1B[0m\r\n');
     }
+    _notificationParser.reset();
     await _ssh.disconnect();
     await Future.delayed(const Duration(milliseconds: 500));
     await _connect();
